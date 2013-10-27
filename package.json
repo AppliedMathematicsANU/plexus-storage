@@ -1,0 +1,12 @@
+{
+  "name": "plexus-storage",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "q": "latest",
+    "sqlite3": "latest",
+    "any-db": "latest",
+    "any-db-sqlite3": "latest",
+    "level": "latest"
+  }
+}
