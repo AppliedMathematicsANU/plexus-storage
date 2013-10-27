@@ -35,7 +35,7 @@ printNicely = function(data) {
 if ((typeof module !== "undefined" && module !== null) && !module.parent) {
   input_type = process.argv[2];
   input_path = process.argv[3];
-  input_storage = require("./" + input_type + "_storage");
+  input_storage = require("./" + input_type);
   Q.longStackSupport = true;
   data = {};
   Q.nfcall(input_storage, input_path).then(function(db) {
