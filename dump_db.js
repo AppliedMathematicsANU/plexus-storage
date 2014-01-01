@@ -31,7 +31,7 @@ var printNicely = function(data) {
       deviations  : data.deviations[k],
       details     : data.details[k]
     };
-    console.log("" + k + ":");
+    console.log(k + ":");
     console.log(JSON.stringify(entry, null, 4));
     console.log();
   });
@@ -45,7 +45,7 @@ if (module != null && !module.parent) {
   var data = {};
 
   cc.go(function*() {
-    var db = yield nbind(input_storage)(input_path);
+    var db = yield input_storage(input_path);
     var keys, i, k;
 
     data.predecessors = yield db.readDependencyGraph();
