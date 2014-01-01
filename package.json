@@ -4,6 +4,7 @@
   "private": true,
   "main": "./index.js",
   "dependencies": {
+    "ceci-core": "odf/ceci-core",
     "q": "0.9.7",
     "sqlite3": "2.1.18",
     "any-db": "1.0.0-rc1",
