@@ -7,43 +7,27 @@ var exec = require('child_process').exec;
 var cc = require('ceci-core');
 
 
-var nbind = function(fn, context) {
-  return function() {
-    var args = Array.prototype.slice.call(arguments);
-    var result = cc.defer();
-
-    fn.apply(context, args.concat(function(err, val) {
-      if (err)
-        result.reject(new Error(err));
-      else
-        result.resolve(val);
-    }));
-
-    return result;
-  };
+var exists = function(path) {
+  var result = cc.defer();
+  fs.exists(path, function(exists) { result.resolve(exists); });
+  return result;
 };
 
 var readJSON = function(path) {
-  var result = cc.defer();
-
-  fs.exists(path, function(exists) {
-    if (exists)
-      cc.go(function*() {
-        result.resolve(JSON.parse(yield nbind(fs.readFile, fs)(path)));
-      });
+  return cc.go(function*() {
+    if (yield exists(path))
+      return JSON.parse(yield cc.nbind(fs.readFile, fs)(path));
     else
-      result.resolve({});
+      return {};
   });
-
-  return result;
 };
 
 var writeJSON = function(path, val) {
   var text = JSON.stringify(val, null, 4);
 
   return cc.go(function*() {
-    yield nbind(exec)("mkdir -p '" + p.dirname(path) + "'");
-    return yield nbind(fs.writeFile, fs)(path, text, { encoding: 'utf8' });
+    yield cc.nbind(exec)("mkdir -p '" + p.dirname(path) + "'");
+    return yield cc.nbind(fs.writeFile, fs)(path, text, { encoding: 'utf8' });
   });
 };
 
@@ -56,19 +40,13 @@ module.exports = function(path) {
 
     var read = function(table, keys) {
       var out = {};
-      keys.forEach(function(k) {
-        out[k] = cache[table][k] || {};
-      });
-
-      var result = cc.defer();
-      result.resolve(out);
-      return result;
+      keys.forEach(function(k) { out[k] = cache[table][k] || {}; });
+      return out;
     };
 
     var write = function(table, data) {
       var val = cache[table];
-      var k;
-      for (k in data)
+      for (var k in data)
         val[k] = data[k];
 
       return cc.go(function*() {

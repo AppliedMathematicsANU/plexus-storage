@@ -1,24 +1,7 @@
 'use strict';
 
-var fs = require('fs');
 var cc = require('ceci-core');
 
-
-var nbind = function(fn, context) {
-  return function() {
-    var args = Array.prototype.slice.call(arguments);
-    var result = cc.defer();
-
-    fn.apply(context, args.concat(function(err, val) {
-      if (err)
-        result.reject(new Error(err));
-      else
-        result.resolve(val);
-    }));
-
-    return result;
-  };
-};
 
 var printNicely = function(data) {
   var keys = Object.keys(data.predecessors);

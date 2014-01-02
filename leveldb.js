@@ -4,23 +4,6 @@ var level = require('level');
 var cc = require('ceci-core');
 
 
-var nbind = function(fn, context) {
-  return function() {
-    var args = Array.prototype.slice.call(arguments);
-    var result = cc.defer();
-
-    fn.apply(context, args.concat(function(err, val) {
-      if (err)
-        result.reject(new Error(err));
-      else
-        result.resolve(val);
-    }));
-
-    return result;
-  };
-};
-
-
 var readDB = function(db, key) {
   var result = cc.defer();
 
@@ -38,35 +21,18 @@ var readDB = function(db, key) {
 
 
 var writeDB = function(db, key, val) {
-  return nbind(db.put, db)(key, val);
-};
-
-
-var mapHash = function(h, f) {
-  return Object.keys(h).map(function(key) {
-    return f(key, h[key]);
-  });
-};
-
-var zipmap = function(keys, values) {
-  var n = Math.min(keys.length, values.length);
-  var result = {};
-
-  for (var i = 0; i < n; ++i)
-    result[keys[i]] = values[i];
-
-  return result;
+  return cc.nbind(db.put, db)(key, val);
 };
 
 
 module.exports = function(path) {
   var withdb = function(f) {
     return cc.go(function*() {
-      var db = nbind(level)(path, { valueEncoding: 'json' });
+      var db = cc.nbind(level)(path, { valueEncoding: 'json' });
       try {
         return yield f(db);
       } finally {
-        yield nbind(db.close, db);
+        yield cc.nbind(db.close, db);
       }
     });
   };

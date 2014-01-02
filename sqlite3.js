@@ -6,25 +6,8 @@ var any = require('any-db');
 var cc = require('ceci-core');
 
 
-var nbind = function(fn, context) {
-  return function() {
-    var args = Array.prototype.slice.call(arguments);
-    var result = cc.defer();
-
-    fn.apply(context, args.concat(function(err, val) {
-      if (err)
-        result.reject(new Error(err));
-      else
-        result.resolve(val);
-    }));
-
-    return result;
-  };
-};
-
-
 var runQuery = function(db) {
-  return nbind(db.query, db)(Array.prototype.slice.call(arguments));
+  return cc.nbind(db.query, db)(Array.prototype.slice.call(arguments));
 };
 
 
@@ -72,11 +55,11 @@ var writeTable = function(db, name, data) {
 module.exports = function(path, cb) {
   var withdb = function(f) {
     return cc.go(function*() {
-      var db = yield nbind(any.createConnection)("sqlite3://" + path);
+      var db = yield cc.nbind(any.createConnection)("sqlite3://" + path);
       try {
         return yield f(db);
       } finally {
-        yield nbind(db.end, db);
+        yield cc.nbind(db.end, db);
       }
     });
   };
