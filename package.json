@@ -3,12 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "main": "./index.js",
-  "dependencies": {
-    "ceci-core": "odf/ceci-core",
-    "q": "0.9.7",
+  "extraDependencies": {
     "sqlite3": "2.1.18",
     "any-db": "1.0.0-rc1",
     "any-db-sqlite3": "1.0.0-rc1",
     "level": "0.17.0-1"
+  },
+  "dependencies": {
+    "ceci-core": "odf/ceci-core"
   }
 }
