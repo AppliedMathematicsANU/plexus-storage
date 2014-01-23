@@ -31,16 +31,12 @@ if (module != null && !module.parent) {
     var db = yield input_storage(input_path);
     var keys, i, k;
 
-    console.log('reading dependency graph...');
     data.predecessors = yield db.readDependencyGraph();
     keys = Object.keys(data.predecessors);
 
-    console.log('reading headers...');
     data.headers = yield db.readSomeHeaders(keys);
-    console.log('reading deviations...');
     data.deviations = yield db.readSomeDeviations(keys);
 
-    console.log('reading details...');
     data.details = {};
     for (i = 0; i < keys.length; ++i) {
       k = keys[i];
