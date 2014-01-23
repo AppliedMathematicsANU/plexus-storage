@@ -13,29 +13,40 @@ var exists = function(path) {
   return result;
 };
 
-var readJSON = function(path) {
+
+var makeLocation = function(path, key) {
+  return path + '/' + key + '.json';
+};
+
+
+var readDB = function(path, key) {
+  var loc = makeLocation(path, key);
+
   return cc.go(function*() {
-    if (yield exists(path))
-      return JSON.parse(yield cc.nbind(fs.readFile, fs)(path));
+    if (yield exists(loc))
+      return JSON.parse(yield cc.nbind(fs.readFile, fs)(loc));
     else
       return {};
   });
 };
 
-var writeJSON = function(path, val) {
+
+var writeDB = function(path, key, val) {
+  var loc = makeLocation(path, key);
   var text = JSON.stringify(val, null, 4);
 
   return cc.go(function*() {
-    yield cc.nbind(exec)("mkdir -p '" + p.dirname(path) + "'");
-    return yield cc.nbind(fs.writeFile, fs)(path, text, { encoding: 'utf8' });
+    yield cc.nbind(exec)("mkdir -p '" + p.dirname(loc) + "'");
+    return yield cc.nbind(fs.writeFile, fs)(loc, text, { encoding: 'utf8' });
   });
 };
+
 
 module.exports = function(path) {
   return cc.go(function*() {
     var cache = {
-      headers   : yield readJSON(path + "/headers.json"),
-      deviations: yield readJSON(path + "/deviations.json")
+      headers   : yield readDB(path, 'headers'),
+      deviations: yield readDB(path, 'deviations')
     };
 
     var read = function(table, keys) {
@@ -49,19 +60,19 @@ module.exports = function(path) {
       for (var k in data)
         val[k] = data[k];
 
-      return writeJSON(path + '/' + table + '.json', val);
+      return writeDB(path, table, val);
     };
   
-    var detailsPath = function(key) {
-      return path + "/details/" + key.slice(0, 6) + "/" + key + ".json";
+    var detailsKey = function(key) {
+      return 'details/' + key.slice(0, 6) + '/' + key;
     };
 
     return {
       readDependencyGraph: function() {
-        return readJSON(path + "/graph.json");
+        return readDB(path, 'predecessors');
       },
       writeDependencyGraph: function(val) {
-        return writeJSON(path + "/graph.json", val);
+        return writeDB(path, 'predecessors', val);
       },
       readSomeHeaders: function(keys) {
         return read('headers', keys);
@@ -76,10 +87,10 @@ module.exports = function(path) {
         return write('deviations', data);
       },
       readSingleNodeDetails: function(key) {
-        return readJSON(detailsPath(key));
+        return readDB(path, detailsKey(key));
       },
       writeSingleNodeDetails: function(key, data) {
-        return writeJSON(detailsPath(key), data);
+        return writeDB(path, detailsKey(key), data);
       }
     };
   });

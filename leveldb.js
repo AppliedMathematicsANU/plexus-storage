@@ -60,6 +60,10 @@ module.exports = function(path) {
       return writeDB(path, table, val);
     };
   
+    var detailsKey = function(key) {
+      return 'details/' + key.slice(0, 6) + '/' + key;
+    };
+
     return {
       readDependencyGraph: function() {
         return readDB(path, 'predecessors');
@@ -80,10 +84,10 @@ module.exports = function(path) {
         return write('deviations', data);
       },
       readSingleNodeDetails: function(key) {
-        return readDB(path, "details-" + key);
+        return readDB(path, detailsKey(key));
       },
       writeSingleNodeDetails: function(key, data) {
-        return writeDB(path, "details-" + key, data);
+        return writeDB(path, detailsKey(key), data);
       }
     };
   });
