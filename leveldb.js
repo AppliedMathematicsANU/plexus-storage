@@ -28,11 +28,11 @@ var writeDB = function(db, key, val) {
 module.exports = function(path) {
   var withdb = function(f) {
     return cc.go(function*() {
-      var db = cc.nbind(level)(path, { valueEncoding: 'json' });
+      var db = yield cc.nbind(level)(path, { valueEncoding: 'json' });
       try {
         return yield f(db);
       } finally {
-        yield cc.nbind(db.close, db);
+        yield cc.nbind(db.close, db)();
       }
     });
   };
