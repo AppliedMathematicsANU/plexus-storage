@@ -37,62 +37,64 @@ module.exports = function(path) {
     });
   };
 
-  return {
-    readDependencyGraph: function() {
+  return cc.go(function*() {
+    var cache = {
+      headers:
+      yield withdb(function(db) { return readDB(db, 'headers'); }),
+
+      deviations:
+      yield withdb(function(db) { return readDB(db, 'deviations'); }),
+    };
+
+    var read = function(table, keys) {
+      var out = {};
+      keys.forEach(function(k) { out[k] = cache[table][k] || {}; });
+      return out;
+    };
+
+    var write = function(table, data) {
+      var val = cache[table];
+      for (var k in data)
+        val[k] = data[k];
+
       return withdb(function(db) {
-        return readDB(db, 'predecessors');
+        return writeDB(db, table, val);
       });
-    },
-    writeDependencyGraph: function(val) {
-      return withdb(function(db) {
-        return writeDB(db, 'predecessors', val);
-      });
-    },
-    readSomeHeaders: function(keys) {
-      return withdb(function(db) {
-        return cc.go(function*() {
-          var result = {};
-          for (var i = 0; i < keys.length; ++i)
-            result[keys[i]] = yield readDB(db, "headers-" + keys[i]);
-          return result;
+    };
+  
+    return {
+      readDependencyGraph: function() {
+        return withdb(function(db) {
+          return readDB(db, 'predecessors');
         });
-      });
-    },
-    writeSomeHeaders: function(data) {
-      return withdb(function(db) {
-        return cc.go(function*() {
-          for (var key in data)
-            yield writeDB(db, "headers-" + key, data[key]);
+      },
+      writeDependencyGraph: function(val) {
+        return withdb(function(db) {
+          return writeDB(db, 'predecessors', val);
         });
-      });
-    },
-    readSomeDeviations: function(keys) {
-      return withdb(function(db) {
-        return cc.go(function*() {
-          var result = {};
-          for (var i = 0; i < keys.length; ++i)
-            result[keys[i]] = yield readDB(db, "deviations-" + keys[i]);
-          return result;
+      },
+      readSomeHeaders: function(keys) {
+        return read('headers', keys);
+      },
+      writeSomeHeaders: function(data) {
+        return write('headers', data);
+      },
+      readSomeDeviations: function(keys) {
+        return read('deviations', keys);
+      },
+      writeSomeDeviations: function(data) {
+        return write('deviations', data);
+      },
+      readSingleNodeDetails: function(key) {
+        return withdb(function(db) {
+          return readDB(db, "details-" + key);
         });
-      });
-    },
-    writeSomeDeviations: function(data) {
-      return withdb(function(db) {
-        return cc.go(function*() {
-          for (var key in data)
-            yield writeDB(db, "deviations-" + key, data[key]);
+      },
+      writeSingleNodeDetails: function(key, data) {
+        return withdb(function(db) {
+          return writeDB(db, "details-" + key, data);
         });
-      });
-    },
-    readSingleNodeDetails: function(key) {
-      return withdb(function(db) {
-        return readDB(db, "details-" + key);
-      });
-    },
-    writeSingleNodeDetails: function(key, data) {
-      return withdb(function(db) {
-        return writeDB(db, "details-" + key, data);
-      });
-    }
-  };
+      }
+    };
+  });
 };
