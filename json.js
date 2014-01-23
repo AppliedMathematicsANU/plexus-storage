@@ -49,9 +49,7 @@ module.exports = function(path) {
       for (var k in data)
         val[k] = data[k];
 
-      return cc.go(function*() {
-        return yield writeJSON(path + '/' + table + '.json', val);
-      });
+      return writeJSON(path + '/' + table + '.json', val);
     };
   
     var detailsPath = function(key) {
