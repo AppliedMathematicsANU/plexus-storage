@@ -60,7 +60,7 @@ module.exports = function(path) {
     },
     writeSomeHeaders: function(data) {
       return withdb(function(db) {
-        cc.go(function*() {
+        return cc.go(function*() {
           for (var key in data)
             yield writeDB(db, "headers-" + key, data[key]);
         });
@@ -78,7 +78,7 @@ module.exports = function(path) {
     },
     writeSomeDeviations: function(data) {
       return withdb(function(db) {
-        cc.go(function*() {
+        return cc.go(function*() {
           for (var key in data)
             yield writeDB(db, "deviations-" + key, data[key]);
         });
