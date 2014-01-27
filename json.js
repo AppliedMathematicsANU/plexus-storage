@@ -19,24 +19,31 @@ var makeLocation = function(path, key) {
 };
 
 
-exports.readDB = function(path, key) {
-  var loc = makeLocation(path, key);
+module.exports = function(path) {
+  return {
+    read: function(key) {
+      var loc = makeLocation(path, key);
 
-  return cc.go(function*() {
-    if (yield exists(loc))
-      return JSON.parse(yield cc.nbind(fs.readFile, fs)(loc));
-    else
-      return {};
-  });
-};
+      return cc.go(function*() {
+        if (yield exists(loc))
+          return JSON.parse(yield cc.nbind(fs.readFile, fs)(loc));
+        else
+          return {};
+      });
+    },
 
+    write: function(key, val) {
+      var loc = makeLocation(path, key);
+      var text = JSON.stringify(val, null, 4);
 
-exports.writeDB = function(path, key, val) {
-  var loc = makeLocation(path, key);
-  var text = JSON.stringify(val, null, 4);
+      return cc.go(function*() {
+        yield cc.nbind(exec)("mkdir -p '" + p.dirname(loc) + "'");
+        return yield cc.nbind(fs.writeFile, fs)(
+          loc, text, { encoding: 'utf8' });
+      });
+    },
 
-  return cc.go(function*() {
-    yield cc.nbind(exec)("mkdir -p '" + p.dirname(loc) + "'");
-    return yield cc.nbind(fs.writeFile, fs)(loc, text, { encoding: 'utf8' });
-  });
-};
+    close: function() {
+    }
+  }
+}
