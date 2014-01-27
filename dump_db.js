@@ -1,6 +1,7 @@
 'use strict';
 
 var cc = require('ceci-core');
+var auto = require('./autoingests');
 
 
 var printNicely = function(data) {
@@ -24,11 +25,10 @@ var printNicely = function(data) {
 if (module != null && !module.parent) {
   var input_type = process.argv[2];
   var input_path = process.argv[3];
-  var input_storage = require("./" + input_type);
   var data = {};
 
   cc.go(function*() {
-    var db = yield input_storage(input_path);
+    var db = yield auto(input_path, require("./" + input_type));
     var keys, i, k;
 
     data.predecessors = yield db.readDependencyGraph();
