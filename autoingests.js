@@ -21,7 +21,7 @@ module.exports = function(path, dblib) {
       for (var k in data)
         val[k] = data[k];
 
-      return writeDB(path, table, val);
+      return dblib.writeDB(path, table, val);
     };
   
     var detailsKey = function(key) {
@@ -33,7 +33,7 @@ module.exports = function(path, dblib) {
         return dblib.readDB(path, 'predecessors');
       },
       writeDependencyGraph: function(val) {
-        return writeDB(path, 'predecessors', val);
+        return dblib.writeDB(path, 'predecessors', val);
       },
       readSomeHeaders: function(keys) {
         return read('headers', keys);
@@ -51,7 +51,7 @@ module.exports = function(path, dblib) {
         return dblib.readDB(path, detailsKey(key));
       },
       writeSingleNodeDetails: function(key, data) {
-        return writeDB(path, detailsKey(key), data);
+        return dblib.writeDB(path, detailsKey(key), data);
       }
     };
   });
