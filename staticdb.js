@@ -3,13 +3,11 @@
 var cc = require('ceci-core');
 
 
-module.exports = function(path, dblib) {
+module.exports = function(storage) {
   return cc.go(function*() {
-    var db = yield dblib(path);
-
     var cache = {
-      headers   : yield db.read('headers'),
-      deviations: yield db.read('deviations')
+      headers   : yield storage.read('headers'),
+      deviations: yield storage.read('deviations')
     };
 
     var read = function(table, keys) {
@@ -23,7 +21,7 @@ module.exports = function(path, dblib) {
       for (var k in data)
         val[k] = data[k];
 
-      return db.write(table, val);
+      return storage.write(table, val);
     };
   
     var detailsKey = function(key) {
@@ -32,10 +30,10 @@ module.exports = function(path, dblib) {
 
     return {
       readDependencyGraph: function() {
-        return db.read('predecessors');
+        return storage.read('predecessors');
       },
       writeDependencyGraph: function(val) {
-        return db.write('predecessors', val);
+        return storage.write('predecessors', val);
       },
       readSomeHeaders: function(keys) {
         return read('headers', keys);
@@ -50,11 +48,12 @@ module.exports = function(path, dblib) {
         return write('deviations', data);
       },
       readSingleNodeDetails: function(key) {
-        return db.read(detailsKey(key));
+        return storage.read(detailsKey(key));
       },
       writeSingleNodeDetails: function(key, data) {
-        return db.write(detailsKey(key), data);
-      }
+        return storage.write(detailsKey(key), data);
+      },
+      close: storage.close
     };
   });
 };

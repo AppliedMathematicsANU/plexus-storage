@@ -1,7 +1,7 @@
 'use strict';
 
 var cc = require('ceci-core');
-var auto = require('./autoingests');
+var staticdb = require('./staticdb');
 
 
 var printNicely = function(data) {
@@ -25,10 +25,11 @@ var printNicely = function(data) {
 if (module != null && !module.parent) {
   var input_type = process.argv[2];
   var input_path = process.argv[3];
+  var storage = require("./" + input_type);
   var data = {};
 
   cc.go(function*() {
-    var db = yield auto(input_path, require("./" + input_type));
+    var db = yield staticdb(yield storage(input_path));
     var keys, i, k;
 
     data.predecessors = yield db.readDependencyGraph();
@@ -42,6 +43,7 @@ if (module != null && !module.parent) {
       k = keys[i];
       data.details[k] = yield db.readSingleNodeDetails(k);
     }
+    yield db.close();
 
     printNicely(data);
   });
