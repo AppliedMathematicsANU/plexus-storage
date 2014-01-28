@@ -17,7 +17,7 @@ module.exports = function(path) {
             if (!err)
               result.resolve(val);
             else if (err.notFound)
-              result.resolve({});
+              result.resolve();
             else
               result.reject(err);
           });

@@ -5,23 +5,32 @@ var cc = require('ceci-core');
 
 module.exports = function(storage) {
   return cc.go(function*() {
-    var cache = {
-      headers   : yield storage.read('headers'),
-      deviations: yield storage.read('deviations')
+    var read = function(key) {
+      return cc.go(function*() {
+        var val = yield storage.read(key);
+        return (val === undefined) ? {} : val;
+      });
     };
 
-    var read = function(table, keys) {
+    var write = storage.write;
+
+    var cache = {
+      headers   : yield read('headers'),
+      deviations: yield read('deviations')
+    };
+
+    var readBatch = function(table, keys) {
       var out = {};
       keys.forEach(function(k) { out[k] = cache[table][k] || {}; });
       return out;
     };
 
-    var write = function(table, data) {
+    var writeBatch = function(table, data) {
       var val = cache[table];
       for (var k in data)
         val[k] = data[k];
 
-      return storage.write(table, val);
+      return write(table, val);
     };
   
     var detailsKey = function(key) {
@@ -30,28 +39,28 @@ module.exports = function(storage) {
 
     return {
       readDependencyGraph: function() {
-        return storage.read('predecessors');
+        return read('predecessors');
       },
       writeDependencyGraph: function(val) {
-        return storage.write('predecessors', val);
+        return write('predecessors', val);
       },
       readSomeHeaders: function(keys) {
-        return read('headers', keys);
+        return readBatch('headers', keys);
       },
       writeSomeHeaders: function(data) {
-        return write('headers', data);
+        return writeBatch('headers', data);
       },
       readSomeDeviations: function(keys) {
-        return read('deviations', keys);
+        return readBatch('deviations', keys);
       },
       writeSomeDeviations: function(data) {
-        return write('deviations', data);
+        return writeBatch('deviations', data);
       },
       readSingleNodeDetails: function(key) {
-        return storage.read(detailsKey(key));
+        return read(detailsKey(key));
       },
       writeSingleNodeDetails: function(key, data) {
-        return storage.write(detailsKey(key), data);
+        return write(detailsKey(key), data);
       },
       close: storage.close
     };

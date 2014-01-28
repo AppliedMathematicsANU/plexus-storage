@@ -27,8 +27,6 @@ module.exports = function(path) {
       return cc.go(function*() {
         if (yield exists(loc))
           return JSON.parse(yield cc.nbind(fs.readFile, fs)(loc));
-        else
-          return {};
       });
     },
 
