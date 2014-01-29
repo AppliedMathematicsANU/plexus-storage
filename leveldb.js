@@ -4,21 +4,12 @@ var levelup = require('levelup');
 var cc      = require('ceci-core');
 var chan    = require('ceci-channels');
 
-
-var merge = function(obj1, obj2) {
-  var result = {};
-  var key;
-  for (key in obj1)
-    result[key] = obj1[key];
-  for (key in obj2)
-    result[key] = obj2[key];
-  return result;
-};
+var util = require('./util');
 
 
 module.exports = function(path, options) {
   return cc.go(function*() {
-    options = merge({ valueEncoding: 'json' }, options)
+    options = util.merge({ valueEncoding: 'json' }, options)
     var db = yield cc.nbind(levelup)(path, options);
 
     try {

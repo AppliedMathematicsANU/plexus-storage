@@ -5,21 +5,35 @@ var timestamp = require('monotonic-timestamp');
 var cc   = require('ceci-core');
 var chan = require('ceci-channels');
 
+var util = require('./util');
+
 
 module.exports = function(storage) {
   return cc.go(function*() {
+    var path = function() {
+      var args = Array.prototype.slice.call(arguments);
+      return args.join('/');
+    };
+
     var exists = function(key) {
       return cc.go(function*() {
-        return undefined !== (yield storage.read('byKey/' + key));
+        return undefined !== (yield storage.read(path('attr', key)));
       });
     };
 
     var createOrUpdate = function(key, spec) {
-      return storage.batch()
-        .put('byKey/' + key, key)
-        .put('byDate/' + timestamp().toString(36), key)
-        .put('attr/' + key, spec || {})
-        .write();
+      return cc.go(function*() {
+        var attr = (yield storage.read(path('attr', key))) || {}
+        if (spec)
+          attr = util.merge(attr, spec)
+
+        var t = timestamp().toString(36);
+
+        return yield storage.batch()
+          .put(path('attr', key), attr)
+          .put(path('history', key, t), attr)
+          .write();
+      });
     };
 
     return {
