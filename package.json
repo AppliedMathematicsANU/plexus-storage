@@ -9,7 +9,10 @@
   "dependencies": {
     "ceci-core": "odf/ceci-core",
     "ceci-channels": "odf/ceci-channels",
-    "level": "0.18.0",
+    "monotonic-timestamp": "0.0.8",
+    "levelup": "0.18.2",
+    "leveldown": "0.10.2",
+    "memdown": "0.6.0",
     "any-db": "2.1.0"
   }
 }

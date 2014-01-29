@@ -1,13 +1,25 @@
 'use strict';
 
-var level = require('level');
-var cc    = require('ceci-core');
-var chan  = require('ceci-channels');
+var levelup = require('levelup');
+var cc      = require('ceci-core');
+var chan    = require('ceci-channels');
 
 
-module.exports = function(path) {
+var merge = function(obj1, obj2) {
+  var result = {};
+  var key;
+  for (key in obj1)
+    result[key] = obj1[key];
+  for (key in obj2)
+    result[key] = obj2[key];
+  return result;
+};
+
+
+module.exports = function(path, options) {
   return cc.go(function*() {
-    var db = yield cc.nbind(level)(path, { valueEncoding: 'json' });
+    options = merge({ valueEncoding: 'json' }, options)
+    var db = yield cc.nbind(levelup)(path, options);
 
     try {
       return {
