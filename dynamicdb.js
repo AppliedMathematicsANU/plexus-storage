@@ -1,6 +1,9 @@
 'use strict';
 
-var cc = require('ceci-core');
+var timestamp = require('monotonic-timestamp');
+
+var cc   = require('ceci-core');
+var chan = require('ceci-channels');
 
 
 module.exports = function(storage) {
@@ -9,6 +12,14 @@ module.exports = function(storage) {
       return cc.go(function*() {
         return undefined !== (yield storage.read('byKey/' + key));
       });
+    };
+
+    var createOrUpdate = function(key, spec) {
+      return storage.batch()
+        .put('byKey/' + key, key)
+        .put('byDate/' + timestamp().toString(36), key)
+        .put('attr/' + key, spec || {})
+        .write();
     };
 
     return {

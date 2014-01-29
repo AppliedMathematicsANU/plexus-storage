@@ -5,31 +5,27 @@ var chan = require('ceci-channels');
 var memdown = require('memdown');
 
 var level = require('./leveldb');
+var dynamic = require('./dynamicdb');
 
 
 var show = function(key, val) {
   console.log(key + ': ' + JSON.stringify(val, null, 2));
 };
 
+var dump_db = function(db, options) {
+  return chan.each(
+    function(data) { show(data.key, data.value); },
+    db.readRange(options));
+};
+
 
 cc.go(function*() {
-  var db = yield level('./dummy', { db: memdown });
+  var db  = yield level('', { db: memdown });
+  var dyn = yield dynamic(db);
 
-  var batch = db.batch()
-    .put('name', 'olaf')
-    .put('age', 50)
-    .put('weight', { amount: 87, unit: 'kg' })
-    .write();
+  yield dyn.create('olaf', { age: 50, weight: { amount: 87, unit: 'kg' } });
 
-  yield batch;
+  yield dump_db(db);
 
-  for (var key in { name: 0, age: 0, weight: 0 })
-    show(key, yield db.read(key));
-  console.log();
-
-  yield chan.each(
-    function(data) { show(data.key, data.value); },
-    db.readRange({ reverse: true }));
-
-  yield db.close();
+  dyn.close();
 });
