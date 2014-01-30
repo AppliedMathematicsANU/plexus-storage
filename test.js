@@ -19,16 +19,34 @@ var dump_db = function(db, options) {
 };
 
 
+var formatAttributes = function(db, key) {
+  return cc.go(function*() {
+    return key + ': ' + JSON.stringify(yield db.readAttributes(key), null, 2);
+  });
+};
+
+
 cc.go(function*() {
   var db  = yield level('', { db: memdown });
   var dyn = yield dynamic(db);
 
-  yield dyn.write('olaf', {
+  yield dyn.writeAttributes('olaf', {
     age: 50,
     weight: { amount: 87.5, unit: 'kg' },
     height: { amount: 187, unit: 'cm' }
   });
 
+  yield dyn.writeAttributes('delaney', {
+    age: 5,
+    weight: { amount: 2.5, unit: 'kg' },
+    height: { amount: 25, unit: 'mm' }
+  });
+
+  console.log(yield formatAttributes(dyn, 'olaf'));
+  console.log(yield formatAttributes(dyn, 'delaney'));
+  console.log();
+
+  console.log('--- full database contents: ---');
   yield dump_db(db);
 
   dyn.close();

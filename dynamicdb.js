@@ -15,25 +15,30 @@ module.exports = function(storage) {
       return args.join('/');
     };
 
-    var write = function(key, spec) {
+    var readAttributes = function(key) {
+      return storage.read(path('attr', key));
+    };
+
+    var writeAttributes = function(key, attr) {
       return cc.go(function*() {
         var t = timestamp().toString(36);
 
         return yield storage.batch()
-          .put(path('attr', key), spec)
-          .put(path('history', key, t), spec)
+          .put(path('keys', key), t)
+          .put(path('attr', key), attr || {})
+          .put(path('hist', 'attr', key, t), attr || {})
           .write();
       });
     };
 
     return {
-      read: function(key) {
-        return read(key);
+      readAttributes: function(key) {
+        return readAttributes(key);
       },
-      write: function(key, spec) {
-        return write(key, spec);
+      writeAttributes: function(key, attr) {
+        return writeAttributes(key, attr);
       },
-      destroy: function() {
+      destroy: function(key) {
         return destroy(key);
       },
       close: storage.close
