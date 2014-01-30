@@ -23,11 +23,8 @@ cc.go(function*() {
   var db  = yield level('', { db: memdown });
   var dyn = yield dynamic(db);
 
-  yield dyn.create('olaf', {
+  yield dyn.write('olaf', {
     age: 50,
-    weight: { amount: 87, unit: 'kg' } });
-
-  yield dyn.update('olaf', {
     weight: { amount: 87.5, unit: 'kg' },
     height: { amount: 187, unit: 'cm' }
   });
