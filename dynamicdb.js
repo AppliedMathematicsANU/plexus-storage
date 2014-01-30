@@ -31,6 +31,18 @@ module.exports = function(storage) {
       });
     };
 
+    var destroy = function(key) {
+      return cc.go(function*() {
+        var t = timestamp().toString(36);
+
+        return yield storage.batch()
+          .del(path('keys', key))
+          .del(path('attr', key))
+          .put(path('hist', 'attr', key, t), null)
+          .write();
+      });
+    };
+
     return {
       readAttributes: function(key) {
         return readAttributes(key);

@@ -48,6 +48,12 @@ cc.go(function*() {
 
   console.log('--- full database contents: ---');
   yield dump_db(db);
+  console.log();
+
+  console.log('--- after deleting delaney: ---');
+  yield dyn.destroy('delaney');
+  yield dump_db(db);
+  console.log();
 
   dyn.close();
 });
