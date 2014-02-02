@@ -35,15 +35,16 @@ module.exports = function(storage) {
       return storage.read(path('attr', key));
     };
 
-    var addRelation = function(pkey, ckey) {
+    var addRelation = function(pkey, ckey, value) {
       return cc.go(function*() {
         var t = timestamp().toString(36);
+        var val = (value == undefined) ? true : value;
 
         return yield storage.batch()
-          .put(path('succ', pkey, ckey), true)
-          .put(path('pred', ckey, pkey), true)
-          .put(path('hist', 'succ', pkey, ckey, t), true)
-          .put(path('hist', 'pred', ckey, pkey, t), true)
+          .put(path('succ', pkey, ckey), val)
+          .put(path('pred', ckey, pkey), val)
+          .put(path('hist', 'succ', pkey, ckey, t), val)
+          .put(path('hist', 'pred', ckey, pkey, t), val)
           .write();
       });
     };
@@ -53,8 +54,7 @@ module.exports = function(storage) {
         var results = [];
         yield chan.each(
           function(item) {
-            if (item.value)
-              results.push(item.key.split(SEP)[2]);
+            results.push(item.key.split(SEP)[2]);
           },
           storage.readRange({
             start: path(table, key, ''),
