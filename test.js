@@ -5,7 +5,7 @@ var chan = require('ceci-channels');
 var memdown = require('memdown');
 
 var level = require('./leveldb');
-var dynamic = require('./dynamicdb');
+var curated = require('./curated');
 
 
 var show = function(key, val) {
@@ -33,7 +33,7 @@ var formatData = function(db, key) {
 
 cc.go(function*() {
   var db  = yield level('', { db: memdown });
-  var dyn = yield dynamic(db);
+  var dyn = yield curated(db);
 
   yield dyn.writeAttributes('olaf', {
     age: 50,
