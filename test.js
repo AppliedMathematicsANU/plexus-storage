@@ -9,7 +9,7 @@ var curated = require('./curated');
 
 
 var show = function(key, val) {
-  console.log(key + ': ' + JSON.stringify(val, null, 2));
+  console.log(JSON.stringify(key) + ': ' + JSON.stringify(val, null, 2));
 };
 
 var dump_db = function(db, options) {
@@ -41,7 +41,9 @@ cc.go(function*() {
     height: { amount: 187, unit: 'cm' }
   });
 
-  yield dyn.writeSuccessors('olaf', ['delaney', 'ada', 'grace']);
+  yield dyn.addRelation('olaf', 'delaney');
+  yield dyn.addRelation('olaf', 'ada');
+  yield dyn.addRelation('olaf', 'grace');
 
   yield dyn.writeAttributes('delaney', {
     age: 5,
@@ -49,10 +51,18 @@ cc.go(function*() {
     height: { amount: 25, unit: 'mm' }
   });
 
-  yield dyn.writeSuccessors('delaney', ['mathew', 'samuel']);
+  yield dyn.addRelation('delaney', 'mathew');
+  yield dyn.addRelation('delaney', 'samuel');
 
   console.log(yield formatData(dyn, 'olaf'));
   console.log(yield formatData(dyn, 'delaney'));
+  console.log();
+
+  console.log('successors of olaf: ' + (yield  dyn.readSuccessors('olaf')));
+  console.log();
+
+  console.log('predecessors of delaney: '
+              + (yield  dyn.readPredecessors('delaney')));
   console.log();
 
   console.log('--- full database contents: ---');
