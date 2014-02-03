@@ -9,6 +9,7 @@
   "dependencies": {
     "ceci-core": "odf/ceci-core",
     "ceci-channels": "odf/ceci-channels",
+    "ceci-filters": "odf/ceci-filters",
     "monotonic-timestamp": "0.0.8",
     "levelup": "0.18.2",
     "leveldown": "0.10.2",

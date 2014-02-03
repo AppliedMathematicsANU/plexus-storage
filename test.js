@@ -1,10 +1,12 @@
 'use strict';
 
+var memdown = require('memdown');
+var level   = require('./leveldb');
+
 var cc   = require('ceci-core');
 var chan = require('ceci-channels');
-var memdown = require('memdown');
+var cf   = require('ceci-filters');
 
-var level = require('./leveldb');
 var curated = require('./curated');
 
 
@@ -27,6 +29,17 @@ var formatData = function(db, key) {
       succ: yield db.readSuccessors(key)
     };
     return JSON.stringify(tmp, null, 2);
+  });
+};
+
+
+var asArray = function(ch) {
+  return cc.go(function*() {
+    var res = [];
+    var val;
+    while (undefined !== (val = yield chan.pull(ch)))
+      res.push(val);
+    return res;
   });
 };
 
@@ -58,11 +71,12 @@ cc.go(function*() {
   console.log(yield formatData(dyn, 'delaney'));
   console.log();
 
-  console.log('successors of olaf: ' + (yield  dyn.readSuccessors('olaf')));
+  console.log('successors of olaf: ' +
+              (yield asArray(dyn.readSuccessors('olaf'))));
   console.log();
 
-  console.log('predecessors of delaney: '
-              + (yield  dyn.readPredecessors('delaney')));
+  console.log('predecessors of delaney:' +
+              (yield asArray(dyn.readPredecessors('delaney'))));
   console.log();
 
   console.log('--- full database contents: ---');

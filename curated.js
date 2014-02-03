@@ -4,6 +4,7 @@ var timestamp = require('monotonic-timestamp');
 
 var cc   = require('ceci-core');
 var chan = require('ceci-channels');
+var cf   = require('ceci-filters');
 
 var util = require('./util');
 
@@ -50,18 +51,12 @@ module.exports = function(storage) {
     };
 
     var readRelatives = function(key, table) {
-      return cc.go(function*() {
-        var results = [];
-        yield chan.each(
-          function(item) {
-            results.push(item.key.split(SEP)[2]);
-          },
-          storage.readRange({
-            start: path(table, key, ''),
-            end  : path(table, key, END)
-          }));
-        return results;
-      });
+      return cf.map(
+        function(item) { return item.key.split(SEP)[2]; },
+        storage.readRange({
+          start: path(table, key, ''),
+          end  : path(table, key, END)
+        }));
     };
 
     var scheduleRelationRemoval = function(pkey, ckey, batch, timestamp) {
@@ -80,15 +75,13 @@ module.exports = function(storage) {
           .del(path('attr', key))
           .put(path('hist', 'attr', key, t), null);
 
-        var i;
+        yield chan.each(
+          function(other) { scheduleRelationRemoval(key, other, batch, t); },
+          readRelatives(key, 'succ'));
 
-        var pred = yield readRelatives(key, 'pred');
-        for (i = 0; i < pred.length; ++i)
-          scheduleRelationRemoval(pred[i], key, batch, t);
-
-        var succ = yield readRelatives(key, 'succ');
-        for (i = 0; i < succ.length; ++i)
-          scheduleRelationRemoval(key, succ[i], batch, t);
+        yield chan.each(
+          function(other) { scheduleRelationRemoval(other, key, batch, t); },
+          readRelatives(key, 'pred'));
         
         yield batch.write();
       });
