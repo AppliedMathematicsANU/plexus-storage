@@ -3,9 +3,6 @@
   "version": "0.0.1",
   "private": true,
   "main": "./index.js",
-  "brokenDependencies": {
-    "any-db-sqlite3": "2.1.1"
-  },
   "dependencies": {
     "ceci-core": "odf/ceci-core",
     "ceci-channels": "odf/ceci-channels",
@@ -15,7 +12,6 @@
     "bops": "0.1.1",
     "levelup": "0.18.2",
     "leveldown": "0.10.2",
-    "memdown": "0.6.0",
-    "any-db": "2.1.0"
+    "memdown": "0.6.0"
   }
 }
