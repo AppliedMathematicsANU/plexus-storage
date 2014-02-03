@@ -11,6 +11,8 @@
     "ceci-channels": "odf/ceci-channels",
     "ceci-filters": "odf/ceci-filters",
     "monotonic-timestamp": "0.0.8",
+    "bytewise": "0.7.0",
+    "bops": "0.1.1",
     "levelup": "0.18.2",
     "leveldown": "0.10.2",
     "memdown": "0.6.0",

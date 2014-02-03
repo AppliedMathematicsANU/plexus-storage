@@ -13,27 +13,32 @@ const SEP = '\x00';
 const END = '\xff';
 
 
+var encode = function(key) {
+  return util.encode(key);
+};
+
+
+var decode = function(key) {
+  return util.decode(key);
+};
+
+
 module.exports = function(storage) {
   return cc.go(function*() {
-    var path = function() {
-      var args = Array.prototype.slice.call(arguments);
-      return args.join(SEP);
-    };
-
     var writeAttributes = function(key, attr) {
       return cc.go(function*() {
         var t = timestamp().toString(36);
 
         return yield storage.batch()
-          .put(path('keys', key), t)
-          .put(path('attr', key), attr)
-          .put(path('hist', 'attr', key, t), attr)
+          .put(encode(['keys', key]), t)
+          .put(encode(['attr', key]), attr)
+          .put(encode(['hist', 'attr', key, t]), attr)
           .write();
       });
     };
 
     var readAttributes = function(key) {
-      return storage.read(path('attr', key));
+      return storage.read(encode(['attr', key]));
     };
 
     var addRelation = function(pkey, ckey, value) {
@@ -42,28 +47,28 @@ module.exports = function(storage) {
         var val = (value == undefined) ? true : value;
 
         return yield storage.batch()
-          .put(path('succ', pkey, ckey), val)
-          .put(path('pred', ckey, pkey), val)
-          .put(path('hist', 'succ', pkey, ckey, t), val)
-          .put(path('hist', 'pred', ckey, pkey, t), val)
+          .put(encode(['succ', pkey, ckey]), val)
+          .put(encode(['pred', ckey, pkey]), val)
+          .put(encode(['hist', 'succ', pkey, ckey, t]), val)
+          .put(encode(['hist', 'pred', ckey, pkey, t]), val)
           .write();
       });
     };
 
     var readRelatives = function(key, table) {
       return cf.map(
-        function(item) { return item.key.split(SEP)[2]; },
+        function(item) { return decode(item.key)[2]; },
         storage.readRange({
-          start: path(table, key, ''),
-          end  : path(table, key, END)
+          start: encode([table, key, '']),
+          end  : encode([table, key, END])
         }));
     };
 
     var scheduleRelationRemoval = function(pkey, ckey, batch, timestamp) {
-      batch.del(path('succ', pkey, ckey));
-      batch.put(path('hist', 'succ', pkey, ckey, timestamp), false);
-      batch.del(path('pred', ckey, pkey));
-      batch.put(path('hist', 'pred', ckey, pkey, timestamp), false);
+      batch.del(encode(['succ', pkey, ckey]));
+      batch.put(encode(['hist', 'succ', pkey, ckey, timestamp]), false);
+      batch.del(encode(['pred', ckey, pkey]));
+      batch.put(encode(['hist', 'pred', ckey, pkey, timestamp]), false);
     };
 
     var destroy = function(key) {
@@ -71,9 +76,9 @@ module.exports = function(storage) {
         var t = timestamp().toString(36);
 
         var batch = storage.batch()
-          .del(path('keys', key))
-          .del(path('attr', key))
-          .put(path('hist', 'attr', key, t), null);
+          .del(encode(['keys', key]))
+          .del(encode(['attr', key]))
+          .put(encode(['hist', 'attr', key, t]), null);
 
         yield chan.each(
           function(other) { scheduleRelationRemoval(key, other, batch, t); },

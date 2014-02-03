@@ -1,12 +1,13 @@
 'use strict';
 
-var memdown = require('memdown');
-var level   = require('./leveldb');
+var memdown  = require('memdown');
 
 var cc   = require('ceci-core');
 var chan = require('ceci-channels');
 
+var level   = require('./leveldb');
 var curated = require('./curated');
+var util    = require('./util');
 
 
 var show = function(key, val) {
@@ -15,7 +16,7 @@ var show = function(key, val) {
 
 var dump_db = function(db, options) {
   return chan.each(
-    function(data) { show(data.key, data.value); },
+    function(data) { show(util.decode(data.key), data.value); },
     db.readRange(options));
 };
 
@@ -23,10 +24,7 @@ var dump_db = function(db, options) {
 var formatData = function(db, key) {
   return cc.go(function*() {
     var tmp = {};
-    tmp[key] = {
-      attr: yield db.readAttributes(key),
-      succ: yield db.readSuccessors(key)
-    };
+    tmp[key] = (yield db.readAttributes(key)) || null;
     return JSON.stringify(tmp, null, 2);
   });
 };
@@ -82,6 +80,19 @@ cc.go(function*() {
 
   console.log('--- after deleting delaney: ---');
   yield dyn.destroy('delaney');
+
+  console.log(yield formatData(dyn, 'olaf'));
+  console.log(yield formatData(dyn, 'delaney'));
+  console.log();
+
+  console.log('successors of olaf: ' +
+              (yield asArray(dyn.readSuccessors('olaf'))));
+  console.log();
+
+  console.log('predecessors of delaney: ' +
+              (yield asArray(dyn.readPredecessors('delaney'))));
+  console.log();
+
   yield dump_db(db);
   console.log();
 
