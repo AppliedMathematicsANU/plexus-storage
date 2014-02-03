@@ -41,7 +41,7 @@ var asArray = function(ch) {
 
 cc.go(function*() {
   var db  = yield level('', { db: memdown });
-  var dyn = yield curated(db);
+  var dyn = yield curated(db, { weight: true });
 
   yield dyn.writeAttributes('olaf', {
     age: 50,

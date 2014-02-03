@@ -9,7 +9,6 @@ var cf   = require('ceci-filters');
 var util = require('./util');
 
 
-const SEP = '\x00';
 const END = '\xff';
 
 
@@ -23,17 +22,34 @@ var decode = function(key) {
 };
 
 
-module.exports = function(storage) {
+module.exports = function(storage, indexedAttributes) {
   return cc.go(function*() {
+    var indexed = indexedAttributes || {};
+
+    var enqueueIndexAdditions = function(key, attr, batch) {
+      for (var k in attr)
+        if (indexed[k])
+          batch.put(encode(['indx', k, attr[k], key]), ''); 
+    };
+
+    var enqueueIndexRemovals = function(key, attr, batch) {
+      for (var k in attr)
+        if (indexed[k])
+          batch.del(encode(['indx', k, attr[k], key])); 
+    };
+
     var writeAttributes = function(key, attr) {
       return cc.go(function*() {
         var t = timestamp().toString(36);
-
-        return yield storage.batch()
+        var batch = storage.batch()
           .put(encode(['keys', key]), t)
           .put(encode(['attr', key]), attr)
-          .put(encode(['hist', 'attr', key, t]), attr)
-          .write();
+          .put(encode(['hist', 'attr', key, t]), attr);
+
+        enqueueIndexRemovals(key, yield readAttributes(key), batch);
+        enqueueIndexAdditions(key, attr, batch);
+
+        return yield batch.write();
       });
     };
 
@@ -64,7 +80,7 @@ module.exports = function(storage) {
         }));
     };
 
-    var scheduleRelationRemoval = function(pkey, ckey, batch, timestamp) {
+    var enqueueRelationRemoval = function(pkey, ckey, batch, timestamp) {
       batch.del(encode(['succ', pkey, ckey]));
       batch.put(encode(['hist', 'succ', pkey, ckey, timestamp]), false);
       batch.del(encode(['pred', ckey, pkey]));
@@ -81,13 +97,15 @@ module.exports = function(storage) {
           .put(encode(['hist', 'attr', key, t]), null);
 
         yield chan.each(
-          function(other) { scheduleRelationRemoval(key, other, batch, t); },
+          function(other) { enqueueRelationRemoval(key, other, batch, t); },
           readRelatives(key, 'succ'));
 
         yield chan.each(
-          function(other) { scheduleRelationRemoval(other, key, batch, t); },
+          function(other) { enqueueRelationRemoval(other, key, batch, t); },
           readRelatives(key, 'pred'));
         
+        enqueueIndexRemovals(key, yield readAttributes(key), batch);
+
         yield batch.write();
       });
     };
