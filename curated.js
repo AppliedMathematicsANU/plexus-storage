@@ -30,8 +30,8 @@ var removeRelation = function(batch, parent, child) {
 
 var setAttribute = function(batch, entity, attr, oldval, newval, indexed) {
   return cc.go(function*() {
-    batch.put(encode(['eav', entity, attr]), newval)
-    batch.put(encode(['aev', attr, entity]), newval);
+    batch.put(encode(['eav', entity, attr, newval]), '');
+    batch.put(encode(['aev', attr, entity, newval]), '');
     if (indexed) {
       batch.del(encode(['ave', attr, oldval, entity]));
       batch.put(encode(['ave', attr, newval, entity]), '');
@@ -42,8 +42,8 @@ var setAttribute = function(batch, entity, attr, oldval, newval, indexed) {
 
 var deleteAttribute = function(batch, entity, attr, oldval, indexed) {
   return cc.go(function*() {
-    batch.del(encode(['eav', entity, attr]))
-    batch.del(encode(['aev', attr, entity]));
+    batch.del(encode(['eav', entity, attr, oldval]))
+    batch.del(encode(['aev', attr, entity, oldval]));
     if (indexed)
       batch.del(encode(['ave', attr, oldval, entity]));
   });
@@ -80,7 +80,7 @@ module.exports = function(storage, indexedAttributes) {
         var result = {};
 
         yield chan.each(
-          function(item) { result[item.key[0]] = item.value; },
+          function(item) { result[item.key[0]] = item.key[1]; },
           scan('eav', entity));
 
         return result;
