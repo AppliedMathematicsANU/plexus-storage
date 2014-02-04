@@ -54,6 +54,23 @@ module.exports = function(storage, indexedAttributes) {
   return cc.go(function*() {
     var indexed = indexedAttributes || {};
 
+    var scan = function() {
+      var given = Array.prototype.slice.call(arguments);
+      var n = given.length;
+
+      return cf.map(
+        function(item) {
+          return {
+            key  : decode(item.key).slice(n),
+            value: item.value
+          }
+        },
+        storage.readRange({
+          start: encode(given.concat('')),
+          end  : encode(given.concat(END))
+        }));
+    };
+
     var getAttribute = function(entity, attr) {
       return storage.read(encode(['eav', entity, attr]));
     };
@@ -63,11 +80,8 @@ module.exports = function(storage, indexedAttributes) {
         var result = {};
 
         yield chan.each(
-          function(item) { result[decode(item.key)[2]] = item.value; },
-          storage.readRange({
-            start: encode(['eav', entity, '']),
-            end  : encode(['eav', entity, END])
-          }));
+          function(item) { result[item.key[0]] = item.value; },
+          scan('eav', entity));
 
         return result;
       });
@@ -75,11 +89,8 @@ module.exports = function(storage, indexedAttributes) {
 
     var readRelatives = function(entity, table) {
       return cf.map(
-        function(item) { return decode(item.key)[2]; },
-        storage.readRange({
-          start: encode([table, entity, '']),
-          end  : encode([table, entity, END])
-        }));
+        function(item) { return item.key[0]; },
+        scan(table, entity));
     };
 
     var writeAttributes = function(entity, attr) {
