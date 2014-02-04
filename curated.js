@@ -22,112 +22,132 @@ var decode = function(key) {
 };
 
 
+var removeRelation = function(batch, parent, child) {
+  batch.del(encode(['succ', parent, child]));
+  batch.del(encode(['pred', child, parent]));
+};
+
+
+var setAttribute = function(batch, entity, attr, oldval, newval, indexed) {
+  return cc.go(function*() {
+    batch.put(encode(['eav', entity, attr]), newval)
+    batch.put(encode(['aev', attr, entity]), newval);
+    if (indexed) {
+      batch.del(encode(['ave', attr, oldval, entity]));
+      batch.put(encode(['ave', attr, newval, entity]), '');
+    }
+  });
+};
+
+
+var deleteAttribute = function(batch, entity, attr, oldval, indexed) {
+  return cc.go(function*() {
+    batch.del(encode(['eav', entity, attr]))
+    batch.del(encode(['aev', attr, entity]));
+    if (indexed)
+      batch.del(encode(['ave', attr, oldval, entity]));
+  });
+};
+
+
 module.exports = function(storage, indexedAttributes) {
   return cc.go(function*() {
     var indexed = indexedAttributes || {};
 
-    var enqueueIndexAdditions = function(key, attr, batch) {
-      for (var k in attr)
-        if (indexed[k])
-          batch.put(encode(['indx', k, attr[k], key]), ''); 
+    var getAttribute = function(entity, attr) {
+      return storage.read(encode(['eav', entity, attr]));
     };
 
-    var enqueueIndexRemovals = function(key, attr, batch) {
-      for (var k in attr)
-        if (indexed[k])
-          batch.del(encode(['indx', k, attr[k], key])); 
-    };
-
-    var writeAttributes = function(key, attr) {
+    var readAttributes = function(entity) {
       return cc.go(function*() {
-        var t = timestamp().toString(36);
-        var batch = storage.batch()
-          .put(encode(['keys', key]), t)
-          .put(encode(['attr', key]), attr)
-          .put(encode(['hist', 'attr', key, t]), attr);
+        var result = {};
 
-        enqueueIndexRemovals(key, yield readAttributes(key), batch);
-        enqueueIndexAdditions(key, attr, batch);
+        yield chan.each(
+          function(item) { result[decode(item.key)[2]] = item.value; },
+          storage.readRange({
+            start: encode(['eav', entity, '']),
+            end  : encode(['eav', entity, END])
+          }));
+
+        return result;
+      });
+    };
+
+    var readRelatives = function(entity, table) {
+      return cf.map(
+        function(item) { return decode(item.key)[2]; },
+        storage.readRange({
+          start: encode([table, entity, '']),
+          end  : encode([table, entity, END])
+        }));
+    };
+
+    var writeAttributes = function(entity, attr) {
+      return cc.go(function*() {
+        var old = yield readAttributes(entity);
+        var batch = storage.batch();
+        var key;
+
+        for (key in old)
+          yield deleteAttribute(batch, entity, key, old[key], indexed[key]);
+
+        for (key in attr)
+          yield setAttribute(
+            batch, entity, key, old[key], attr[key], indexed[key]);
 
         return yield batch.write();
       });
     };
 
-    var readAttributes = function(key) {
-      return storage.read(encode(['attr', key]));
-    };
-
-    var addRelation = function(pkey, ckey, value) {
+    var addRelation = function(parent, child, value) {
       return cc.go(function*() {
-        var t = timestamp().toString(36);
         var val = (value == undefined) ? true : value;
 
         return yield storage.batch()
-          .put(encode(['succ', pkey, ckey]), val)
-          .put(encode(['pred', ckey, pkey]), val)
-          .put(encode(['hist', 'succ', pkey, ckey, t]), val)
-          .put(encode(['hist', 'pred', ckey, pkey, t]), val)
+          .put(encode(['succ', parent, child]), val)
+          .put(encode(['pred', child, parent]), val)
           .write();
       });
     };
 
-    var readRelatives = function(key, table) {
-      return cf.map(
-        function(item) { return decode(item.key)[2]; },
-        storage.readRange({
-          start: encode([table, key, '']),
-          end  : encode([table, key, END])
-        }));
-    };
-
-    var enqueueRelationRemoval = function(pkey, ckey, batch, timestamp) {
-      batch.del(encode(['succ', pkey, ckey]));
-      batch.put(encode(['hist', 'succ', pkey, ckey, timestamp]), false);
-      batch.del(encode(['pred', ckey, pkey]));
-      batch.put(encode(['hist', 'pred', ckey, pkey, timestamp]), false);
-    };
-
-    var destroy = function(key) {
+    var destroy = function(entity) {
       return cc.go(function*() {
-        var t = timestamp().toString(36);
+        var batch = storage.batch().del(encode(['attr', entity]));
 
-        var batch = storage.batch()
-          .del(encode(['keys', key]))
-          .del(encode(['attr', key]))
-          .put(encode(['hist', 'attr', key, t]), null);
-
-        yield chan.each(
-          function(other) { enqueueRelationRemoval(key, other, batch, t); },
-          readRelatives(key, 'succ'));
+        var old = yield readAttributes(entity);
+        for (var key in old)
+          yield deleteAttribute(batch, entity, key, old[key], indexed[key]);
 
         yield chan.each(
-          function(other) { enqueueRelationRemoval(other, key, batch, t); },
-          readRelatives(key, 'pred'));
-        
-        enqueueIndexRemovals(key, yield readAttributes(key), batch);
+          function(other) { removeRelation(batch, entity, other); },
+          readRelatives(entity, 'succ'));
+
+        yield chan.each(
+          function(other) { removeRelation(batch, other, entity); },
+          readRelatives(entity, 'pred'));
 
         yield batch.write();
       });
     };
 
     return {
-      writeAttributes: function(key, attr) {
-        return writeAttributes(key, attr);
+      writeAttributes: function(entity, attr) {
+        return writeAttributes(entity, attr);
       },
-      readAttributes: function(key) {
-        return readAttributes(key);
+      readAttributes: function(entity) {
+        return readAttributes(entity);
       },
-      addRelation: function(pkey, ckey) {
-        return addRelation(pkey, ckey);
+      addRelation: function(parent, child) {
+        return addRelation(parent, child);
       },
-      readSuccessors: function(key) {
-        return readRelatives(key, 'succ');
+      readSuccessors: function(entity) {
+        return readRelatives(entity, 'succ');
       },
-      readPredecessors: function(key) {
-        return readRelatives(key, 'pred');
+      readPredecessors: function(entity) {
+        return readRelatives(entity, 'pred');
       },
-      destroy: function(key) {
-        return destroy(key);
+      destroy: function(entity) {
+        return destroy(entity);
       },
       close: storage.close
     };
