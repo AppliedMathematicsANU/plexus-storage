@@ -10,13 +10,13 @@ var curated = require('./curated');
 var util    = require('./util');
 
 
-var show = function(key, val) {
+var showPair = function(key, val) {
   console.log(JSON.stringify(key) + ': ' + JSON.stringify(val, null, 2));
 };
 
 var dump_db = function(db, options) {
   return chan.each(
-    function(data) { show(util.decode(data.key), data.value); },
+    function(data) { showPair(util.decode(data.key), data.value); },
     db.readRange(options));
 };
 
@@ -30,18 +30,33 @@ var formatData = function(db, key) {
 };
 
 
-var asArray = function(ch) {
+var schema = {
+  weight: {
+    indexed: true
+  },
+  parent: {
+    reference: true
+  }
+};
+
+
+var show = function(db, dyn) {
+  var entities = Array.prototype.slice.call(arguments, 2);
+
   return cc.go(function*() {
-    var res = [];
-    yield chan.each(function(x) { res.push(x); }, ch);
-    return res;
+    for (var i = 0; i < entities.length; ++i)
+      console.log(yield formatData(dyn, entities[i]));
+    console.log();
+
+    yield dump_db(db);
+    console.log();
   });
 };
 
 
 cc.go(function*() {
   var db  = yield level('', { db: memdown });
-  var dyn = yield curated(db, { weight: true });
+  var dyn = yield curated(db, schema);
 
   yield dyn.writeAttributes('olaf', {
     age: 50,
@@ -49,52 +64,30 @@ cc.go(function*() {
     height: { amount: 187, unit: 'cm' }
   });
 
-  yield dyn.addRelation('olaf', 'delaney');
-  yield dyn.addRelation('olaf', 'ada');
-  yield dyn.addRelation('olaf', 'grace');
-
   yield dyn.writeAttributes('delaney', {
     age: 5,
     weight: { amount: 2.5, unit: 'kg' },
-    height: { amount: 25, unit: 'mm' }
+    height: { amount: 25, unit: 'mm' },
+    parent: 'olaf'
   });
 
-  yield dyn.addRelation('delaney', 'mathew');
-  yield dyn.addRelation('delaney', 'samuel');
+  yield dyn.writeAttributes('grace', {
+    age: 5,
+    weight: { amount: 30, unit: 'kg' },
+    height: { amount: 40, unit: 'cm' },
+    parent: 'olaf'
+  });
 
-  console.log(yield formatData(dyn, 'olaf'));
-  console.log(yield formatData(dyn, 'delaney'));
-  console.log();
+  yield show(db, dyn, 'olaf', 'delaney', 'grace');
 
-  console.log('successors of olaf: ' +
-              (yield asArray(dyn.readSuccessors('olaf'))));
-  console.log();
-
-  console.log('predecessors of delaney: ' +
-              (yield asArray(dyn.readPredecessors('delaney'))));
-  console.log();
-
-  console.log('--- full database contents: ---');
-  yield dump_db(db);
-  console.log();
+  console.log('--- after changing grace\'s parent to delaney: ---');
+  yield dyn.writeAttributes('grace', { parent: 'delaney' });
+  yield show(db, dyn, 'olaf', 'delaney', 'grace');
 
   console.log('--- after deleting delaney: ---');
   yield dyn.destroy('delaney');
+  yield show(db, dyn, 'olaf', 'delaney', 'grace');
 
-  console.log(yield formatData(dyn, 'olaf'));
-  console.log(yield formatData(dyn, 'delaney'));
-  console.log();
-
-  console.log('successors of olaf: ' +
-              (yield asArray(dyn.readSuccessors('olaf'))));
-  console.log();
-
-  console.log('predecessors of delaney: ' +
-              (yield asArray(dyn.readPredecessors('delaney'))));
-  console.log();
-
-  yield dump_db(db);
-  console.log();
 
   dyn.close();
 });

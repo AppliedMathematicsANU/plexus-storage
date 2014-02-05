@@ -22,37 +22,33 @@ var decode = function(key) {
 };
 
 
-var removeRelation = function(batch, parent, child) {
-  batch.del(encode(['succ', parent, child]));
-  batch.del(encode(['pred', child, parent]));
+var putAttr = function(batch, entity, attr, val, attrSchema) {
+  batch.put(encode(['eav', entity, attr, val]), '');
+  batch.put(encode(['aev', attr, entity, val]), '');
+  if (attrSchema.indexed)
+    batch.put(encode(['ave', attr, val, entity]), '');
+  if (attrSchema.reference)
+    batch.put(encode(['vae', val, attr, entity]), '');
 };
 
 
-var setAttribute = function(batch, entity, attr, oldval, newval, indexed) {
-  return cc.go(function*() {
-    batch.put(encode(['eav', entity, attr, newval]), '');
-    batch.put(encode(['aev', attr, entity, newval]), '');
-    if (indexed) {
-      batch.del(encode(['ave', attr, oldval, entity]));
-      batch.put(encode(['ave', attr, newval, entity]), '');
-    }
-  });
+var delAttr = function(batch, entity, attr, val, attrSchema) {
+  batch.del(encode(['eav', entity, attr, val]))
+  batch.del(encode(['aev', attr, entity, val]));
+  if (attrSchema.indexed)
+    batch.del(encode(['ave', attr, val, entity]));
+  if (attrSchema.reference)
+    batch.del(encode(['vae', val, attr, entity]), '');
 };
 
 
-var deleteAttribute = function(batch, entity, attr, oldval, indexed) {
-  return cc.go(function*() {
-    batch.del(encode(['eav', entity, attr, oldval]))
-    batch.del(encode(['aev', attr, entity, oldval]));
-    if (indexed)
-      batch.del(encode(['ave', attr, oldval, entity]));
-  });
-};
+module.exports = function(storage, schema) {
+  schema = schema || {};
 
-
-module.exports = function(storage, indexedAttributes) {
   return cc.go(function*() {
-    var indexed = indexedAttributes || {};
+    var attrSchema = function(key) {
+      return schema[key] || {};
+    };
 
     var scan = function() {
       var given = Array.prototype.slice.call(arguments);
@@ -71,10 +67,6 @@ module.exports = function(storage, indexedAttributes) {
         }));
     };
 
-    var getAttribute = function(entity, attr) {
-      return storage.read(encode(['eav', entity, attr]));
-    };
-
     var readAttributes = function(entity) {
       return cc.go(function*() {
         var result = {};
@@ -87,55 +79,38 @@ module.exports = function(storage, indexedAttributes) {
       });
     };
 
-    var readRelatives = function(entity, table) {
-      return cf.map(
-        function(item) { return item.key[0]; },
-        scan(table, entity));
-    };
-
     var writeAttributes = function(entity, attr) {
       return cc.go(function*() {
-        var old = yield readAttributes(entity);
         var batch = storage.batch();
         var key;
 
+        var old = yield readAttributes(entity);
         for (key in old)
-          yield deleteAttribute(batch, entity, key, old[key], indexed[key]);
+          if (attr.hasOwnProperty(key))
+            delAttr(batch, entity, key, old[key], attrSchema(key));
 
         for (key in attr)
-          yield setAttribute(
-            batch, entity, key, old[key], attr[key], indexed[key]);
+          putAttr(batch, entity, key, attr[key], attrSchema(key));
 
         return yield batch.write();
       });
     };
 
-    var addRelation = function(parent, child, value) {
-      return cc.go(function*() {
-        var val = (value == undefined) ? true : value;
-
-        return yield storage.batch()
-          .put(encode(['succ', parent, child]), val)
-          .put(encode(['pred', child, parent]), val)
-          .write();
-      });
-    };
-
     var destroy = function(entity) {
       return cc.go(function*() {
-        var batch = storage.batch().del(encode(['attr', entity]));
+        var batch = storage.batch();
 
         var old = yield readAttributes(entity);
         for (var key in old)
-          yield deleteAttribute(batch, entity, key, old[key], indexed[key]);
+          delAttr(batch, entity, key, old[key], attrSchema(key));
 
         yield chan.each(
-          function(other) { removeRelation(batch, entity, other); },
-          readRelatives(entity, 'succ'));
-
-        yield chan.each(
-          function(other) { removeRelation(batch, other, entity); },
-          readRelatives(entity, 'pred'));
+          function(item) {
+            var attr = item.key[0];
+            var other = item.key[1];
+            delAttr(batch, other, attr, entity, attrSchema(attr));
+          },
+          scan('vae', entity));
 
         yield batch.write();
       });
@@ -147,15 +122,6 @@ module.exports = function(storage, indexedAttributes) {
       },
       readAttributes: function(entity) {
         return readAttributes(entity);
-      },
-      addRelation: function(parent, child) {
-        return addRelation(parent, child);
-      },
-      readSuccessors: function(entity) {
-        return readRelatives(entity, 'succ');
-      },
-      readPredecessors: function(entity) {
-        return readRelatives(entity, 'pred');
       },
       destroy: function(entity) {
         return destroy(entity);
