@@ -8,18 +8,10 @@ var cf   = require('ceci-filters');
 
 var util = require('./util');
 
+var encode = util.encode;
+var decode = util.decode;
 
 const END = '\xff';
-
-
-var encode = function(key) {
-  return util.encode(key);
-};
-
-
-var decode = function(key) {
-  return util.decode(key);
-};
 
 
 var putAttr = function(batch, entity, attr, val, attrSchema) {
