@@ -5,12 +5,12 @@ var bytewise = require('bytewise');
 
 
 exports.encode = function(data) {
-  return bops.to(bytewise.encode(data), 'base64');
+  return bops.to(bytewise.encode(data), 'hex');
 };
 
 
 exports.decode = function(code) {
-  return bytewise.decode(bops.from(code, 'base64'));
+  return bytewise.decode(bops.from(code, 'hex'));
 };
 
 

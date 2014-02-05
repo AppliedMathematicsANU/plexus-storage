@@ -54,8 +54,8 @@ module.exports = function(storage, schema) {
           }
         },
         storage.readRange({
-          start: encode(given.concat('')),
-          end  : encode(given.concat(END))
+          start: encode(given.concat(null)),
+          end  : encode(given.concat(undefined))
         }));
     };
 
