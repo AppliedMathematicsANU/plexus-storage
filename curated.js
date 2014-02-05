@@ -30,8 +30,8 @@ var delAttr = function(batch, entity, attr, val, attrSchema) {
 };
 
 
-var addLog = function(batch, entity, attr, val, timestamp) {
-  batch.put(encode(['log', timestamp, entity, attr]), val);
+var addReverseLog = function(batch, entity, attr, val, timestamp) {
+  batch.put(encode(['rev', timestamp, entity, attr]), val);
 };
 
 
@@ -95,9 +95,9 @@ module.exports = function(storage, schema) {
         for (key in attr) {
           putAttr(batch, entity, key, attr[key], attrSchema(key), t);
           if (old.hasOwnProperty(key))
-            addLog(batch, entity, key, [old[key]], t);
+            addReverseLog(batch, entity, key, [old[key]], t);
           else
-            addLog(batch, entity, key, [], t);
+            addReverseLog(batch, entity, key, [], t);
         }
 
         return yield batch.write();
@@ -112,7 +112,7 @@ module.exports = function(storage, schema) {
         var old = yield readAttributes(entity);
         for (var key in old) {
           delAttr(batch, entity, key, old[key], attrSchema(key));
-          addLog(batch, entity, key, [old[key]], t);
+          addReverseLog(batch, entity, key, [old[key]], t);
         }
 
         yield chan.each(
@@ -120,7 +120,7 @@ module.exports = function(storage, schema) {
             var attr = item.key[0];
             var other = item.key[1];
             delAttr(batch, other, attr, entity, attrSchema(attr));
-            addLog(batch, other, attr, [entity], t);
+            addReverseLog(batch, other, attr, [entity], t);
           },
           scan('vae', entity));
 
