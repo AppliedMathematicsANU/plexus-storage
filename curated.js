@@ -22,13 +22,18 @@ var putAttr = function(batch, entity, attr, val, attrSchema, timestamp) {
 };
 
 
-var delAttr = function(batch, entity, attr, val, attrSchema, timestamp) {
+var delAttr = function(batch, entity, attr, val, attrSchema) {
   batch.del(encode(['eav', entity, attr, val]))
   batch.del(encode(['aev', attr, entity, val]));
   if (attrSchema.indexed)
     batch.del(encode(['ave', attr, val, entity]));
   if (attrSchema.reference)
     batch.del(encode(['vae', val, attr, entity]));
+};
+
+
+var addUndo = function(batch, entity, attr, val, mode, timestamp) {
+  batch.put(encode(['undo', timestamp, mode, entity, attr]), val);
 };
 
 
@@ -87,10 +92,15 @@ module.exports = function(storage, schema) {
         var old = yield readAttributes(entity);
         for (key in old)
           if (attr.hasOwnProperty(key))
-            delAttr(batch, entity, key, old[key], attrSchema(key), t);
+            delAttr(batch, entity, key, old[key], attrSchema(key));
 
-        for (key in attr)
+        for (key in attr) {
           putAttr(batch, entity, key, attr[key], attrSchema(key), t);
+          if (old.hasOwnProperty(key))
+            addUndo(batch, entity, key, old[key], 'put', t);
+          else
+            addUndo(batch, entity, key, null, 'del', t);
+        }
 
         return yield batch.write();
       });
@@ -102,14 +112,17 @@ module.exports = function(storage, schema) {
         var batch = storage.batch();
 
         var old = yield readAttributes(entity);
-        for (var key in old)
-          delAttr(batch, entity, key, old[key], attrSchema(key), t);
+        for (var key in old) {
+          delAttr(batch, entity, key, old[key], attrSchema(key));
+          addUndo(batch, entity, key, old[key], 'put', t);
+        }
 
         yield chan.each(
           function(item) {
             var attr = item.key[0];
             var other = item.key[1];
-            delAttr(batch, other, attr, entity, attrSchema(attr), t);
+            delAttr(batch, other, attr, entity, attrSchema(attr));
+            addUndo(batch, other, attr, entity, 'put', t);
           },
           scan('vae', entity));
 
