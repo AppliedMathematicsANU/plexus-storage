@@ -9,8 +9,6 @@ var util = require('./util');
 var encode = util.encode;
 var decode = util.decode;
 
-const END = '\xff';
-
 
 var putAttr = function(batch, entity, attr, val, attrSchema, timestamp) {
   batch.put(encode(['eav', entity, attr, val]), timestamp);
@@ -32,8 +30,8 @@ var delAttr = function(batch, entity, attr, val, attrSchema) {
 };
 
 
-var addUndo = function(batch, entity, attr, val, mode, timestamp) {
-  batch.put(encode(['undo', timestamp, mode, entity, attr]), val);
+var addLog = function(batch, entity, attr, val, timestamp) {
+  batch.put(encode(['log', timestamp, entity, attr]), val);
 };
 
 
@@ -97,9 +95,9 @@ module.exports = function(storage, schema) {
         for (key in attr) {
           putAttr(batch, entity, key, attr[key], attrSchema(key), t);
           if (old.hasOwnProperty(key))
-            addUndo(batch, entity, key, old[key], 'put', t);
+            addLog(batch, entity, key, [old[key]], t);
           else
-            addUndo(batch, entity, key, null, 'del', t);
+            addLog(batch, entity, key, [], t);
         }
 
         return yield batch.write();
@@ -114,7 +112,7 @@ module.exports = function(storage, schema) {
         var old = yield readAttributes(entity);
         for (var key in old) {
           delAttr(batch, entity, key, old[key], attrSchema(key));
-          addUndo(batch, entity, key, old[key], 'put', t);
+          addLog(batch, entity, key, [old[key]], t);
         }
 
         yield chan.each(
@@ -122,7 +120,7 @@ module.exports = function(storage, schema) {
             var attr = item.key[0];
             var other = item.key[1];
             delAttr(batch, other, attr, entity, attrSchema(attr));
-            addUndo(batch, other, attr, entity, 'put', t);
+            addLog(batch, other, attr, [entity], t);
           },
           scan('vae', entity));
 

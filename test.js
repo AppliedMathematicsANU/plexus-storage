@@ -11,7 +11,7 @@ var util    = require('./util');
 
 
 var showPair = function(key, val) {
-  console.log(JSON.stringify(key) + ': ' + JSON.stringify(val, null, 2));
+  console.log(JSON.stringify(key) + ': ' + JSON.stringify(val));
 };
 
 var dump_db = function(db, options) {
