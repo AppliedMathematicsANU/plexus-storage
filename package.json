@@ -4,7 +4,7 @@
   "private": true,
   "main": "./index.js",
   "dependencies": {
-    "ceci-core": "odf/ceci-core",
+    "ceci-core": "~0.1.0",
     "ceci-channels": "odf/ceci-channels",
     "ceci-filters": "odf/ceci-filters",
     "monotonic-timestamp": "0.0.8",
