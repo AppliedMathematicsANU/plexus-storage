@@ -24,7 +24,7 @@ var dump_db = function(db, options) {
 var formatData = function(db, key) {
   return cc.go(function*() {
     var tmp = {};
-    tmp[key] = (yield db.readAttributes(key)) || null;
+    tmp[key] = (yield db.readEntity(key)) || null;
     return JSON.stringify(tmp, null, 2);
   });
 };
@@ -58,20 +58,20 @@ cc.go(function*() {
   var db  = yield level('', { db: memdown });
   var dyn = yield curated(db, schema);
 
-  yield dyn.writeAttributes('olaf', {
+  yield dyn.updateEntity('olaf', {
     age: 50,
     weight: { amount: 87.5, unit: 'kg' },
     height: { amount: 187, unit: 'cm' }
   });
 
-  yield dyn.writeAttributes('delaney', {
+  yield dyn.updateEntity('delaney', {
     age: 5,
     weight: { amount: 2.5, unit: 'kg' },
     height: { amount: 25, unit: 'mm' },
     parent: 'olaf'
   });
 
-  yield dyn.writeAttributes('grace', {
+  yield dyn.updateEntity('grace', {
     age: 5,
     weight: { amount: 30, unit: 'kg' },
     height: { amount: 40, unit: 'cm' },
@@ -81,11 +81,11 @@ cc.go(function*() {
   yield show(db, dyn, 'olaf', 'delaney', 'grace');
 
   console.log('--- after changing grace\'s parent to delaney: ---');
-  yield dyn.writeAttributes('grace', { parent: 'delaney' });
+  yield dyn.updateEntity('grace', { parent: 'delaney' });
   yield show(db, dyn, 'olaf', 'delaney', 'grace');
 
   console.log('--- after deleting delaney: ---');
-  yield dyn.destroy('delaney');
+  yield dyn.destroyEntity('delaney');
   yield show(db, dyn, 'olaf', 'delaney', 'grace');
 
 

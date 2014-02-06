@@ -10,7 +10,7 @@ var encode = util.encode;
 var decode = util.decode;
 
 
-var putAttr = function(batch, entity, attr, val, attrSchema, timestamp) {
+var putDatum = function(batch, entity, attr, val, attrSchema, timestamp) {
   batch.put(encode(['eav', entity, attr, val]), timestamp);
   batch.put(encode(['aev', attr, entity, val]), timestamp);
   if (attrSchema.indexed)
@@ -20,7 +20,7 @@ var putAttr = function(batch, entity, attr, val, attrSchema, timestamp) {
 };
 
 
-var delAttr = function(batch, entity, attr, val, attrSchema) {
+var removeDatum = function(batch, entity, attr, val, attrSchema) {
   batch.del(encode(['eav', entity, attr, val]))
   batch.del(encode(['aev', attr, entity, val]));
   if (attrSchema.indexed)
@@ -69,7 +69,7 @@ module.exports = function(storage, schema) {
       });
     };
 
-    var readAttributes = function(entity) {
+    var readEntity = function(entity) {
       return cc.go(function*() {
         var result = {};
 
@@ -81,19 +81,19 @@ module.exports = function(storage, schema) {
       });
     };
 
-    var writeAttributes = function(entity, attr) {
+    var updateEntity = function(entity, attr) {
       return cc.go(function*() {
         var t = yield makeTimestamp();
         var batch = storage.batch();
         var key;
 
-        var old = yield readAttributes(entity);
+        var old = yield readEntity(entity);
         for (key in old)
           if (attr.hasOwnProperty(key))
-            delAttr(batch, entity, key, old[key], attrSchema(key));
+            removeDatum(batch, entity, key, old[key], attrSchema(key));
 
         for (key in attr) {
-          putAttr(batch, entity, key, attr[key], attrSchema(key), t);
+          putDatum(batch, entity, key, attr[key], attrSchema(key), t);
           if (old.hasOwnProperty(key))
             addReverseLog(batch, entity, key, [old[key]], t);
           else
@@ -104,14 +104,14 @@ module.exports = function(storage, schema) {
       });
     };
 
-    var destroy = function(entity) {
+    var destroyEntity = function(entity) {
       return cc.go(function*() {
         var t = yield makeTimestamp();
         var batch = storage.batch();
 
-        var old = yield readAttributes(entity);
+        var old = yield readEntity(entity);
         for (var key in old) {
-          delAttr(batch, entity, key, old[key], attrSchema(key));
+          removeDatum(batch, entity, key, old[key], attrSchema(key));
           addReverseLog(batch, entity, key, [old[key]], t);
         }
 
@@ -119,7 +119,7 @@ module.exports = function(storage, schema) {
           function(item) {
             var attr = item.key[0];
             var other = item.key[1];
-            delAttr(batch, other, attr, entity, attrSchema(attr));
+            removeDatum(batch, other, attr, entity, attrSchema(attr));
             addReverseLog(batch, other, attr, [entity], t);
           },
           scan('vae', entity));
@@ -129,14 +129,14 @@ module.exports = function(storage, schema) {
     };
 
     return {
-      writeAttributes: function(entity, attr) {
-        return writeAttributes(entity, attr);
+      updateEntity: function(entity, attr) {
+        return updateEntity(entity, attr);
       },
-      readAttributes: function(entity) {
-        return readAttributes(entity);
+      readEntity: function(entity) {
+        return readEntity(entity);
       },
-      destroy: function(entity) {
-        return destroy(entity);
+      destroyEntity: function(entity) {
+        return destroyEntity(entity);
       },
       close: storage.close
     };
