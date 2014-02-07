@@ -67,11 +67,11 @@ module.exports = function(storage, schema) {
         }));
     };
 
-    var makeTimestamp = function() {
+    var nextTimestamp = function(batch) {
       return cc.go(function*() {
         var t = yield chan.pull(scan('seq'));
         var next = (t === undefined) ? -1 : t.key[0] - 1;
-        yield storage.write(encode(['seq', next]), Date.now());
+        batch.put(encode(['seq', next]), Date.now());
         return next;
       });
     };
@@ -90,8 +90,8 @@ module.exports = function(storage, schema) {
 
     var updateEntity = function(entity, attr) {
       return cc.go(function*() {
-        var t = yield makeTimestamp();
         var batch = storage.batch();
+        var t = yield nextTimestamp(batch);
         var old = yield readEntity(entity);
         var key;
 
@@ -105,8 +105,8 @@ module.exports = function(storage, schema) {
 
     var destroyEntity = function(entity) {
       return cc.go(function*() {
-        var t = yield makeTimestamp();
         var batch = storage.batch();
+        var t = yield nextTimestamp(batch);
 
         var old = yield readEntity(entity);
         for (var key in old)
