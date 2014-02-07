@@ -58,24 +58,24 @@ cc.go(function*() {
   var db  = yield level('', { db: memdown });
   var dyn = yield curated(db, schema);
 
-  yield cc.lift(Array,
-                dyn.updateEntity('olaf', {
-                  age: 50,
-                  weight: { amount: 87.5, unit: 'kg' },
-                  height: { amount: 187, unit: 'cm' }
-                }),
-                dyn.updateEntity('delaney', {
-                  age: 5,
-                  weight: { amount: 2.5, unit: 'kg' },
-                  height: { amount: 25, unit: 'mm' },
-                  parent: 'olaf'
-                }),
-                dyn.updateEntity('grace', {
-                  age: 0,
-                  weight: { amount: 30, unit: 'kg' },
-                  height: { amount: 40, unit: 'cm' },
-                  parent: 'olaf'
-                }));
+  yield cc.lift(Array)(
+    dyn.updateEntity('olaf', {
+      age: 50,
+      weight: { amount: 87.5, unit: 'kg' },
+      height: { amount: 187, unit: 'cm' }
+    }),
+    dyn.updateEntity('delaney', {
+      age: 5,
+      weight: { amount: 2.5, unit: 'kg' },
+      height: { amount: 25, unit: 'mm' },
+      parent: 'olaf'
+    }),
+    dyn.updateEntity('grace', {
+      age: 0,
+      weight: { amount: 30, unit: 'kg' },
+      height: { amount: 40, unit: 'cm' },
+      parent: 'olaf'
+    }));
 
   yield show(db, dyn, 'olaf', 'delaney', 'grace');
 

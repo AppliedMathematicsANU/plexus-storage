@@ -64,6 +64,17 @@ module.exports = function(storage, schema) {
   return cc.go(function*() {
     var lock = new Lock();
 
+    var atomically = function(action) {
+      return cc.go(function*() {
+        yield lock.acquire();
+        var batch = storage.batch();
+        var t =  yield nextTimestamp(batch);
+        yield cc.go(action, batch, t);
+        yield batch.write();
+        lock.release();
+      });
+    };
+
     var attrSchema = function(key) {
       return schema[key] || {};
     };
@@ -107,31 +118,16 @@ module.exports = function(storage, schema) {
     };
 
     var updateEntity = function(entity, attr) {
-      return cc.go(function*() {
-        yield lock.acquire();
-
-        var batch = storage.batch();
-        var t = yield nextTimestamp(batch);
+      return atomically(function*(batch, t) {
         var old = yield readEntity(entity);
-        var key;
-
-        for (key in attr)
+        for (var key in attr)
           putDatum(batch, entity, key,
                    attr[key], util.own(old, key), attrSchema(key), t);
-
-        yield batch.write();
-
-        lock.release();
       });
     };
 
     var destroyEntity = function(entity) {
-      return cc.go(function*() {
-        yield lock.acquire();
-
-        var batch = storage.batch();
-        var t = yield nextTimestamp(batch);
-
+      return atomically(function*(batch, t) {
         var old = yield readEntity(entity);
         for (var key in old)
           removeDatum(batch, entity, key, old[key], attrSchema(key), t);
@@ -143,10 +139,6 @@ module.exports = function(storage, schema) {
             removeDatum(batch, other, attr, entity, attrSchema(attr), t);
           },
           scan('vae', entity));
-
-        yield batch.write();
-
-        lock.release();
       });
     };
 
