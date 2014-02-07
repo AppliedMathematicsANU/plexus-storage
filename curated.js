@@ -10,6 +10,22 @@ var encode = util.encode;
 var decode = util.decode;
 
 
+function Lock() {
+  this.count = 0;
+  this.busy = chan.chan();
+  this.release();
+};
+
+Lock.prototype = {
+  acquire: function() {
+    return chan.pull(this.busy);
+  },
+  release: function() {
+    chan.push(this.busy, ++this.count);
+  }
+};
+
+
 var addReverseLog = function(batch, entity, attr, val, time) {
   batch.put(encode(['rev', time, entity, attr]), val);
 };
@@ -46,6 +62,8 @@ module.exports = function(storage, schema) {
   schema = schema || {};
 
   return cc.go(function*() {
+    var lock = new Lock();
+
     var attrSchema = function(key) {
       return schema[key] || {};
     };
@@ -90,6 +108,8 @@ module.exports = function(storage, schema) {
 
     var updateEntity = function(entity, attr) {
       return cc.go(function*() {
+        yield lock.acquire();
+
         var batch = storage.batch();
         var t = yield nextTimestamp(batch);
         var old = yield readEntity(entity);
@@ -99,12 +119,16 @@ module.exports = function(storage, schema) {
           putDatum(batch, entity, key,
                    attr[key], util.own(old, key), attrSchema(key), t);
 
-        return yield batch.write();
+        yield batch.write();
+
+        lock.release();
       });
     };
 
     var destroyEntity = function(entity) {
       return cc.go(function*() {
+        yield lock.acquire();
+
         var batch = storage.batch();
         var t = yield nextTimestamp(batch);
 
@@ -121,6 +145,8 @@ module.exports = function(storage, schema) {
           scan('vae', entity));
 
         yield batch.write();
+
+        lock.release();
       });
     };
 
