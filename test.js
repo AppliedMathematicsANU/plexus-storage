@@ -55,38 +55,41 @@ var show = function(db, dyn) {
 
 
 cc.go(function*() {
-  var db  = yield level('', { db: memdown });
-  var dyn = yield curated(db, schema);
+  try {
+    var db  = yield level('', { db: memdown });
+    var dyn = yield curated(db, schema);
 
-  yield cc.lift(Array)(
-    dyn.updateEntity('olaf', {
-      age: 50,
-      weight: { amount: 87.5, unit: 'kg' },
-      height: { amount: 187, unit: 'cm' }
-    }),
-    dyn.updateEntity('delaney', {
-      age: 5,
-      weight: { amount: 2.5, unit: 'kg' },
-      height: { amount: 25, unit: 'mm' },
-      parent: 'olaf'
-    }),
-    dyn.updateEntity('grace', {
-      age: 0,
-      weight: { amount: 30, unit: 'kg' },
-      height: { amount: 40, unit: 'cm' },
-      parent: 'olaf'
-    }));
+    yield cc.lift(Array)(
+      dyn.updateEntity('olaf', {
+        age: 50,
+        weight: { amount: 87.5, unit: 'kg' },
+        height: { amount: 187, unit: 'cm' }
+      }),
+      dyn.updateEntity('delaney', {
+        age: 5,
+        weight: { amount: 2.5, unit: 'kg' },
+        height: { amount: 25, unit: 'mm' },
+        parent: 'olaf'
+      }),
+      dyn.updateEntity('grace', {
+        age: 0,
+        weight: { amount: 30, unit: 'kg' },
+        height: { amount: 40, unit: 'cm' },
+        parent: 'olaf'
+      }));
 
-  yield show(db, dyn, 'olaf', 'delaney', 'grace');
+    yield show(db, dyn, 'olaf', 'delaney', 'grace');
 
-  console.log('--- after changing grace\'s parent to delaney: ---');
-  yield dyn.updateEntity('grace', { parent: 'delaney' });
-  yield show(db, dyn, 'olaf', 'delaney', 'grace');
+    console.log('--- after changing grace\'s parent to delaney: ---');
+    yield dyn.updateEntity('grace', { parent: 'delaney' });
+    yield show(db, dyn, 'olaf', 'delaney', 'grace');
 
-  console.log('--- after deleting delaney: ---');
-  yield dyn.destroyEntity('delaney');
-  yield show(db, dyn, 'olaf', 'delaney', 'grace');
+    console.log('--- after deleting delaney: ---');
+    yield dyn.destroyEntity('delaney');
+    yield show(db, dyn, 'olaf', 'delaney', 'grace');
 
-
-  dyn.close();
+    dyn.close();
+  } catch(ex) {
+    console.error(ex.stack);
+  }
 });
