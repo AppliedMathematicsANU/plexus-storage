@@ -10,17 +10,14 @@ var encode = util.encode;
 var decode = util.decode;
 
 
-var putDatum = function(batch, entity, attr, val, attrSchema, timestamp) {
-  batch.put(encode(['eav', entity, attr, val]), timestamp);
-  batch.put(encode(['aev', attr, entity, val]), timestamp);
-  if (attrSchema.indexed)
-    batch.put(encode(['ave', attr, val, entity]), timestamp);
-  if (attrSchema.reference)
-    batch.put(encode(['vae', val, attr, entity]), timestamp);
+var addReverseLog = function(batch, entity, attr, val, time) {
+  batch.put(encode(['rev', time, entity, attr]), val);
 };
 
 
-var removeDatum = function(batch, entity, attr, val, attrSchema) {
+var removeDatum = function(batch, entity, attr, val, attrSchema, time) {
+  addReverseLog(batch, entity, attr, val, time);
+
   batch.del(encode(['eav', entity, attr, val]))
   batch.del(encode(['aev', attr, entity, val]));
   if (attrSchema.indexed)
@@ -30,8 +27,18 @@ var removeDatum = function(batch, entity, attr, val, attrSchema) {
 };
 
 
-var addReverseLog = function(batch, entity, attr, val, timestamp) {
-  batch.put(encode(['rev', timestamp, entity, attr]), val);
+var putDatum = function(batch, entity, attr, val, old, attrSchema, time) {
+  if (old === undefined)
+    addReverseLog(batch, entity, attr, [], time);
+  else
+    removeDatum(batch, entity, attr, old, attrSchema, time);
+
+  batch.put(encode(['eav', entity, attr, val]), time);
+  batch.put(encode(['aev', attr, entity, val]), time);
+  if (attrSchema.indexed)
+    batch.put(encode(['ave', attr, val, entity]), time);
+  if (attrSchema.reference)
+    batch.put(encode(['vae', val, attr, entity]), time);
 };
 
 
@@ -85,20 +92,12 @@ module.exports = function(storage, schema) {
       return cc.go(function*() {
         var t = yield makeTimestamp();
         var batch = storage.batch();
+        var old = yield readEntity(entity);
         var key;
 
-        var old = yield readEntity(entity);
-        for (key in old)
-          if (attr.hasOwnProperty(key))
-            removeDatum(batch, entity, key, old[key], attrSchema(key));
-
-        for (key in attr) {
-          putDatum(batch, entity, key, attr[key], attrSchema(key), t);
-          if (old.hasOwnProperty(key))
-            addReverseLog(batch, entity, key, [old[key]], t);
-          else
-            addReverseLog(batch, entity, key, [], t);
-        }
+        for (key in attr)
+          putDatum(batch, entity, key,
+                   attr[key], util.own(old, key), attrSchema(key), t);
 
         return yield batch.write();
       });
@@ -110,17 +109,14 @@ module.exports = function(storage, schema) {
         var batch = storage.batch();
 
         var old = yield readEntity(entity);
-        for (var key in old) {
-          removeDatum(batch, entity, key, old[key], attrSchema(key));
-          addReverseLog(batch, entity, key, [old[key]], t);
-        }
+        for (var key in old)
+          removeDatum(batch, entity, key, old[key], attrSchema(key), t);
 
         yield chan.each(
           function(item) {
             var attr = item.key[0];
             var other = item.key[1];
-            removeDatum(batch, other, attr, entity, attrSchema(attr));
-            addReverseLog(batch, other, attr, [entity], t);
+            removeDatum(batch, other, attr, entity, attrSchema(attr), t);
           },
           scan('vae', entity));
 

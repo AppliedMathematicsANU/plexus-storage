@@ -23,3 +23,9 @@ exports.merge = function(obj1, obj2) {
     result[key] = obj2[key];
   return result;
 };
+
+
+exports.own = function(obj, key) {
+  if (obj.hasOwnProperty(key))
+    return obj[key];
+};
