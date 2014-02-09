@@ -26,7 +26,7 @@ var dump_db = function(db, options) {
 };
 
 
-var formatData = function(db, key) {
+var formatEntity = function(db, key) {
   return cc.go(function*() {
     var tmp = {};
     tmp[key] = (yield db.readEntity(key)) || null;
@@ -34,12 +34,22 @@ var formatData = function(db, key) {
   });
 };
 
-var show = function(db, dyn) {
-  var entities = Array.prototype.slice.call(arguments, 2);
+var formatAttribute = function(db, key) {
+  return cc.go(function*() {
+    var tmp = {};
+    tmp[key] = (yield db.readAttribute(key)) || null;
+    return JSON.stringify(tmp, null, 2);
+  });
+};
 
+var show = function(db, dyn, entities, attributes) {
   return cc.go(function*() {
     for (var i = 0; i < entities.length; ++i)
-      console.log(yield formatData(dyn, entities[i]));
+      console.log(yield formatEntity(dyn, entities[i]));
+    console.log();
+
+    for (var i = 0; i < attributes.length; ++i)
+      console.log(yield formatAttribute(dyn, attributes[i]));
     console.log();
 
     yield dump_db(db);
@@ -48,7 +58,7 @@ var show = function(db, dyn) {
 };
 
 
-var schema = {
+ var schema = {
   weight: {
     indexed: true
   },
@@ -61,6 +71,8 @@ var schema = {
 top(function*() {
   var db  = yield level('', { db: memdown });
   var dyn = yield curated(db, schema);
+  var entities = ['olaf', 'delaney', 'grace'];
+  var attributes = ['age', 'weight', 'height', 'parent'];
 
   yield cc.lift(Array)(
     dyn.updateEntity('olaf', {
@@ -81,19 +93,23 @@ top(function*() {
       parent: 'olaf'
     }));
 
-  yield show(db, dyn, 'olaf', 'delaney', 'grace');
+  yield show(db, dyn, entities, attributes);
 
   console.log('--- after changing grace\'s parent to delaney: ---');
   yield dyn.updateEntity('grace', { parent: 'delaney' });
-  yield show(db, dyn, 'olaf', 'delaney', 'grace');
+  yield show(db, dyn, entities, attributes);
 
   console.log('--- after changing olaf\'s weight: ---');
-  yield dyn.updateEntity('olaf', { weight: { amount: 86, unit: 'kg' } });
-  yield show(db, dyn, 'olaf', 'delaney', 'grace');
+  yield dyn.updateAttribute('weight', { olaf: { amount: 86, unit: 'kg' } });
+  yield show(db, dyn, entities, attributes);
 
   console.log('--- after deleting delaney: ---');
   yield dyn.destroyEntity('delaney');
-  yield show(db, dyn, 'olaf', 'delaney', 'grace');
+  yield show(db, dyn, entities, attributes);
+
+  console.log('--- after deleting weights: ---');
+  yield dyn.destroyAttribute('weight');
+  yield show(db, dyn, entities, attributes);
 
   dyn.close();
 });

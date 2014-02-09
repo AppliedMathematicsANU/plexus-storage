@@ -140,17 +140,43 @@ module.exports = function(storage, schema) {
       });
     };
 
+    var readAttribute = function(key) {
+      return cc.go(function*() {
+        var result = {};
+
+        yield chan.each(
+          function(item) { result[item.key[0]] = item.key[1]; },
+          scan('aev', key));
+
+        return result;
+      });
+    };
+
+    var updateAttribute = function(key, assign) {
+      return atomically(function*(batch, time) {
+        var old = yield readAttribute(key);
+        for (var e in assign)
+          putDatum(batch, e, key,
+                   assign[e], util.own(old, e), attrSchema(key), time);
+      });
+    };
+
+    var destroyAttribute = function(key) {
+      return atomically(function*(batch, time) {
+        var old = yield readAttribute(key);
+        for (var e in old)
+          removeDatum(batch, e, key, old[e], attrSchema(key), time);
+      });
+    };
+
     return {
-      updateEntity: function(entity, attr) {
-        return updateEntity(entity, attr);
-      },
-      readEntity: function(entity) {
-        return readEntity(entity);
-      },
-      destroyEntity: function(entity) {
-        return destroyEntity(entity);
-      },
-      close: storage.close
+      updateEntity    : updateEntity,
+      readEntity      : readEntity,
+      destroyEntity   : destroyEntity,
+      updateAttribute : updateAttribute,
+      readAttribute   : readAttribute,
+      destroyAttribute: destroyAttribute,
+      close           : storage.close
     };
   })
 };
