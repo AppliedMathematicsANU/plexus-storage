@@ -10,6 +10,11 @@ var curated = require('./curated');
 var util    = require('./util');
 
 
+var top = function(gen) {
+  cc.go(gen).then(null, function(ex) { console.log(ex.stack); });
+};
+
+
 var showPair = function(key, val) {
   console.log(JSON.stringify(key) + ': ' + JSON.stringify(val));
 };
@@ -29,17 +34,6 @@ var formatData = function(db, key) {
   });
 };
 
-
-var schema = {
-  weight: {
-    indexed: true
-  },
-  parent: {
-    reference: true
-  }
-};
-
-
 var show = function(db, dyn) {
   var entities = Array.prototype.slice.call(arguments, 2);
 
@@ -54,42 +48,52 @@ var show = function(db, dyn) {
 };
 
 
-cc.go(function*() {
-  try {
-    var db  = yield level('', { db: memdown });
-    var dyn = yield curated(db, schema);
-
-    yield cc.lift(Array)(
-      dyn.updateEntity('olaf', {
-        age: 50,
-        weight: { amount: 87.5, unit: 'kg' },
-        height: { amount: 187, unit: 'cm' }
-      }),
-      dyn.updateEntity('delaney', {
-        age: 5,
-        weight: { amount: 2.5, unit: 'kg' },
-        height: { amount: 25, unit: 'mm' },
-        parent: 'olaf'
-      }),
-      dyn.updateEntity('grace', {
-        age: 0,
-        weight: { amount: 30, unit: 'kg' },
-        height: { amount: 40, unit: 'cm' },
-        parent: 'olaf'
-      }));
-
-    yield show(db, dyn, 'olaf', 'delaney', 'grace');
-
-    console.log('--- after changing grace\'s parent to delaney: ---');
-    yield dyn.updateEntity('grace', { parent: 'delaney' });
-    yield show(db, dyn, 'olaf', 'delaney', 'grace');
-
-    console.log('--- after deleting delaney: ---');
-    yield dyn.destroyEntity('delaney');
-    yield show(db, dyn, 'olaf', 'delaney', 'grace');
-
-    dyn.close();
-  } catch(ex) {
-    console.error(ex.stack);
+var schema = {
+  weight: {
+    indexed: true
+  },
+  parent: {
+    reference: true
   }
+};
+
+
+top(function*() {
+  var db  = yield level('', { db: memdown });
+  var dyn = yield curated(db, schema);
+
+  yield cc.lift(Array)(
+    dyn.updateEntity('olaf', {
+      age: 50,
+      weight: { amount: 87.5, unit: 'kg' },
+      height: { amount: 187, unit: 'cm' }
+    }),
+    dyn.updateEntity('delaney', {
+      age: 5,
+      weight: { amount: 2.5, unit: 'kg' },
+      height: { amount: 25, unit: 'mm' },
+      parent: 'olaf'
+    }),
+    dyn.updateEntity('grace', {
+      age: 0,
+      weight: { amount: 30, unit: 'kg' },
+      height: { amount: 40, unit: 'cm' },
+      parent: 'olaf'
+    }));
+
+  yield show(db, dyn, 'olaf', 'delaney', 'grace');
+
+  console.log('--- after changing grace\'s parent to delaney: ---');
+  yield dyn.updateEntity('grace', { parent: 'delaney' });
+  yield show(db, dyn, 'olaf', 'delaney', 'grace');
+
+  console.log('--- after changing olaf\'s weight: ---');
+  yield dyn.updateEntity('olaf', { weight: { amount: 86, unit: 'kg' } });
+  yield show(db, dyn, 'olaf', 'delaney', 'grace');
+
+  console.log('--- after deleting delaney: ---');
+  yield dyn.destroyEntity('delaney');
+  yield show(db, dyn, 'olaf', 'delaney', 'grace');
+
+  dyn.close();
 });

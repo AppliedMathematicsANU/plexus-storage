@@ -11,7 +11,6 @@ var decode = util.decode;
 
 
 function Lock() {
-  this.count = 0;
   this.busy = chan.chan();
   this.release();
 };
@@ -21,7 +20,7 @@ Lock.prototype = {
     return chan.pull(this.busy);
   },
   release: function() {
-    chan.push(this.busy, ++this.count);
+    chan.push(this.busy, null);
   }
 };
 
@@ -64,21 +63,6 @@ module.exports = function(storage, schema) {
   return cc.go(function*() {
     var lock = new Lock();
 
-    var atomically = function(action) {
-      return cc.go(function*() {
-        yield lock.acquire();
-        var batch = storage.batch();
-        var t =  yield nextTimestamp(batch);
-        yield cc.go(action, batch, t);
-        yield batch.write();
-        lock.release();
-      });
-    };
-
-    var attrSchema = function(key) {
-      return schema[key] || {};
-    };
-
     var scan = function() {
       var given = Array.prototype.slice.call(arguments);
       var n = given.length;
@@ -105,6 +89,20 @@ module.exports = function(storage, schema) {
       });
     };
 
+    var atomically = function(action) {
+      return cc.go(function*() {
+        yield lock.acquire();
+        var batch = storage.batch();
+        yield cc.go(action, batch, yield nextTimestamp(batch));
+        yield batch.write();
+        lock.release();
+      });
+    };
+
+    var attrSchema = function(key) {
+      return schema[key] || {};
+    };
+
     var readEntity = function(entity) {
       return cc.go(function*() {
         var result = {};
@@ -118,25 +116,25 @@ module.exports = function(storage, schema) {
     };
 
     var updateEntity = function(entity, attr) {
-      return atomically(function*(batch, t) {
+      return atomically(function*(batch, time) {
         var old = yield readEntity(entity);
         for (var key in attr)
           putDatum(batch, entity, key,
-                   attr[key], util.own(old, key), attrSchema(key), t);
+                   attr[key], util.own(old, key), attrSchema(key), time);
       });
     };
 
     var destroyEntity = function(entity) {
-      return atomically(function*(batch, t) {
+      return atomically(function*(batch, time) {
         var old = yield readEntity(entity);
         for (var key in old)
-          removeDatum(batch, entity, key, old[key], attrSchema(key), t);
+          removeDatum(batch, entity, key, old[key], attrSchema(key), time);
 
         yield chan.each(
           function(item) {
             var attr = item.key[0];
             var other = item.key[1];
-            removeDatum(batch, other, attr, entity, attrSchema(attr), t);
+            removeDatum(batch, other, attr, entity, attrSchema(attr), time);
           },
           scan('vae', entity));
       });
