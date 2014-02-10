@@ -63,9 +63,10 @@ module.exports = function(storage, schema) {
   return cc.go(function*() {
     var lock = new Lock();
 
-    var scan = function() {
-      var given = Array.prototype.slice.call(arguments);
-      var n = given.length;
+    var scan = function(prefix, range) {
+      var n = prefix.length;
+      var from = range ? range.from : null;
+      var to   = range ? range.to : undefined;
 
       return cf.map(
         function(item) {
@@ -75,14 +76,14 @@ module.exports = function(storage, schema) {
           }
         },
         storage.readRange({
-          start: encode(given.concat(null)),
-          end  : encode(given.concat(undefined))
+          start: encode(prefix.concat(from)),
+          end  : encode(prefix.concat(to))
         }));
     };
 
     var nextTimestamp = function(batch) {
       return cc.go(function*() {
-        var t = yield chan.pull(scan('seq'));
+        var t = yield chan.pull(scan(['seq']));
         var next = (t === undefined) ? -1 : t.key[0] - 1;
         batch.put(encode(['seq', next]), Date.now());
         return next;
@@ -109,7 +110,7 @@ module.exports = function(storage, schema) {
 
         yield chan.each(
           function(item) { result[item.key[0]] = item.key[1]; },
-          scan('eav', entity));
+          scan(['eav', entity]));
 
         return result;
       });
@@ -136,17 +137,38 @@ module.exports = function(storage, schema) {
             var other = item.key[1];
             removeDatum(batch, other, attr, entity, attrSchema(attr), time);
           },
-          scan('vae', entity));
+          scan(['vae', entity]));
       });
     };
 
-    var readAttribute = function(key) {
+    var readAttribute = function(key, range) {
       return cc.go(function*() {
         var result = {};
+        var data;
+        if (range) {
+          if (attrSchema(key).indexed)
+            data = cf.map(
+              function(item) {
+                return {
+                  key  : [item.key[1], item.key[0]],
+                  value: item.value
+                }
+              },
+              scan(['ave', key], range));
+          else
+            data = cf.filter(
+              function(item) {
+                var val = item.key[1];
+                return val >= range.from && val <= range.to;
+              },
+              scan(['aev', key]));
+        }
+        else
+          data = scan(['aev', key]);
 
         yield chan.each(
           function(item) { result[item.key[0]] = item.key[1]; },
-          scan('aev', key));
+          data);
 
         return result;
       });

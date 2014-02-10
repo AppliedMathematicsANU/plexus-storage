@@ -77,30 +77,39 @@ top(function*() {
   yield cc.lift(Array)(
     dyn.updateEntity('olaf', {
       age: 50,
-      weight: { amount: 87.5, unit: 'kg' },
-      height: { amount: 187, unit: 'cm' }
+      weight: 87.5,
+      height: 187.0
     }),
     dyn.updateEntity('delaney', {
       age: 5,
-      weight: { amount: 2.5, unit: 'kg' },
-      height: { amount: 25, unit: 'mm' },
+      weight: 2.5,
+      height: 2.5,
       parent: 'olaf'
     }),
     dyn.updateEntity('grace', {
       age: 0,
-      weight: { amount: 30, unit: 'kg' },
-      height: { amount: 40, unit: 'cm' },
+      weight: 30,
+      height: 40,
       parent: 'olaf'
     }));
 
   yield show(db, dyn, entities, attributes);
 
+  console.log('weights between 20 and 50:',
+              yield dyn.readAttribute('weight', { from: 20, to: 50 }));
+  console.log('heights between 0 and 50:',
+              yield dyn.readAttribute('height', { from: 0, to: 50 }));
+  console.log();
+
   console.log('--- after changing grace\'s parent to delaney: ---');
   yield dyn.updateEntity('grace', { parent: 'delaney' });
   yield show(db, dyn, entities, attributes);
 
+  console.log('weights between 20 and 30:',
+              yield dyn.readAttribute('weight', { from: 20, to: 30 }));
+
   console.log('--- after changing olaf\'s weight: ---');
-  yield dyn.updateAttribute('weight', { olaf: { amount: 86, unit: 'kg' } });
+  yield dyn.updateAttribute('weight', { olaf: 86 });
   yield show(db, dyn, entities, attributes);
 
   console.log('--- after deleting delaney: ---');
