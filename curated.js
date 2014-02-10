@@ -60,7 +60,7 @@ module.exports = function(storage, schema) {
   return cc.go(function*() {
     var lock = chan.createLock();
 
-    var scan = function(prefix, range) {
+    var scan = function(prefix, range, limit) {
       var n = prefix.length;
       var from = range ? range.from : null;
       var to   = range ? range.to : undefined;
@@ -74,13 +74,14 @@ module.exports = function(storage, schema) {
         },
         storage.readRange({
           start: encode(prefix.concat(from)),
-          end  : encode(prefix.concat(to))
+          end  : encode(prefix.concat(to)),
+          limit: (limit == null ? -1 : limit)
         }));
     };
 
     var nextTimestamp = function(batch) {
       return cc.go(function*() {
-        var t = yield chan.pull(scan(['seq']));
+        var t = yield chan.pull(scan(['seq'], null, 1));
         var next = (t === undefined) ? -1 : t.key[0] - 1;
         batch.put(encode(['seq', next]), Date.now());
         return next;
