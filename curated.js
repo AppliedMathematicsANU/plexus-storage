@@ -119,7 +119,7 @@ module.exports = function(storage, schema) {
     return {
       close: storage.close,
 
-      readEntity: function(entity) {
+      byEntity: function(entity) {
         return cc.go(function*() {
           var result = {};
 
@@ -133,7 +133,7 @@ module.exports = function(storage, schema) {
 
       updateEntity: function(entity, attr) {
         return atomically(function*(batch, time) {
-          var old = yield this.readEntity(entity);
+          var old = yield this.byEntity(entity);
           for (var key in attr)
             putDatum(batch, entity, key,
                      attr[key], util.own(old, key), attrSchema(key), time);
@@ -142,7 +142,7 @@ module.exports = function(storage, schema) {
 
       destroyEntity: function(entity) {
         return atomically(function*(batch, time) {
-          var old = yield this.readEntity(entity);
+          var old = yield this.byEntity(entity);
           for (var key in old)
             removeDatum(batch, entity, key, old[key], attrSchema(key), time);
 
@@ -156,7 +156,7 @@ module.exports = function(storage, schema) {
         }.bind(this));
       },
 
-      readAttribute: function(key, range) {
+      byAttribute: function(key, range) {
         return cc.go(function*() {
           var result = {};
           var data;
@@ -191,7 +191,7 @@ module.exports = function(storage, schema) {
 
       updateAttribute: function(key, assign) {
         return atomically(function*(batch, time) {
-          var old = yield this.readAttribute(key);
+          var old = yield this.byAttribute(key);
           for (var e in assign)
             putDatum(batch, e, key,
                      assign[e], util.own(old, e), attrSchema(key), time);
@@ -200,7 +200,7 @@ module.exports = function(storage, schema) {
 
       destroyAttribute: function(key) {
         return atomically(function*(batch, time) {
-          var old = yield this.readAttribute(key);
+          var old = yield this.byAttribute(key);
           for (var e in old)
             removeDatum(batch, e, key, old[e], attrSchema(key), time);
         }.bind(this));
