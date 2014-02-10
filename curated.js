@@ -10,21 +10,6 @@ var encode = util.encode;
 var decode = util.decode;
 
 
-function Lock() {
-  this.busy = chan.chan();
-  this.release();
-};
-
-Lock.prototype = {
-  acquire: function() {
-    return chan.pull(this.busy);
-  },
-  release: function() {
-    chan.push(this.busy, null);
-  }
-};
-
-
 var indexKeys = function(value, indexer) {
   if (typeof indexer == 'function')
     return indexer(value);
@@ -73,7 +58,7 @@ module.exports = function(storage, schema) {
   schema = schema || {};
 
   return cc.go(function*() {
-    var lock = new Lock();
+    var lock = chan.createLock();
 
     var scan = function(prefix, range) {
       var n = prefix.length;
