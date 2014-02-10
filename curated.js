@@ -116,101 +116,95 @@ module.exports = function(storage, schema) {
       return schema[key] || {};
     };
 
-    var readEntity = function(entity) {
-      return cc.go(function*() {
-        var result = {};
-
-        yield chan.each(
-          function(item) { result[item.key[0]] = item.key[1]; },
-          scan(['eav', entity]));
-
-        return result;
-      });
-    };
-
-    var updateEntity = function(entity, attr) {
-      return atomically(function*(batch, time) {
-        var old = yield readEntity(entity);
-        for (var key in attr)
-          putDatum(batch, entity, key,
-                   attr[key], util.own(old, key), attrSchema(key), time);
-      });
-    };
-
-    var destroyEntity = function(entity) {
-      return atomically(function*(batch, time) {
-        var old = yield readEntity(entity);
-        for (var key in old)
-          removeDatum(batch, entity, key, old[key], attrSchema(key), time);
-
-        yield chan.each(
-          function(item) {
-            var attr = item.key[0];
-            var other = item.key[1];
-            removeDatum(batch, other, attr, entity, attrSchema(attr), time);
-          },
-          scan(['vae', entity]));
-      });
-    };
-
-    var readAttribute = function(key, range) {
-      return cc.go(function*() {
-        var result = {};
-        var data;
-        if (range) {
-          if (attrSchema(key).indexed)
-            data = cf.map(
-              function(item) {
-                return {
-                  key  : [item.key[1], item.key[0]],
-                  value: item.value
-                }
-              },
-              scan(['ave', key], range));
-          else
-            data = cf.filter(
-              function(item) {
-                var val = item.key[1];
-                return val >= range.from && val <= range.to;
-              },
-              scan(['aev', key]));
-        }
-        else
-          data = scan(['aev', key]);
-
-        yield chan.each(
-          function(item) { result[item.key[0]] = item.key[1]; },
-          data);
-
-        return result;
-      });
-    };
-
-    var updateAttribute = function(key, assign) {
-      return atomically(function*(batch, time) {
-        var old = yield readAttribute(key);
-        for (var e in assign)
-          putDatum(batch, e, key,
-                   assign[e], util.own(old, e), attrSchema(key), time);
-      });
-    };
-
-    var destroyAttribute = function(key) {
-      return atomically(function*(batch, time) {
-        var old = yield readAttribute(key);
-        for (var e in old)
-          removeDatum(batch, e, key, old[e], attrSchema(key), time);
-      });
-    };
-
     return {
-      updateEntity    : updateEntity,
-      readEntity      : readEntity,
-      destroyEntity   : destroyEntity,
-      updateAttribute : updateAttribute,
-      readAttribute   : readAttribute,
-      destroyAttribute: destroyAttribute,
-      close           : storage.close
+      close: storage.close,
+
+      readEntity: function(entity) {
+        return cc.go(function*() {
+          var result = {};
+
+          yield chan.each(
+            function(item) { result[item.key[0]] = item.key[1]; },
+            scan(['eav', entity]));
+
+          return result;
+        });
+      },
+
+      updateEntity: function(entity, attr) {
+        return atomically(function*(batch, time) {
+          var old = yield this.readEntity(entity);
+          for (var key in attr)
+            putDatum(batch, entity, key,
+                     attr[key], util.own(old, key), attrSchema(key), time);
+        }.bind(this));
+      },
+
+      destroyEntity: function(entity) {
+        return atomically(function*(batch, time) {
+          var old = yield this.readEntity(entity);
+          for (var key in old)
+            removeDatum(batch, entity, key, old[key], attrSchema(key), time);
+
+          yield chan.each(
+            function(item) {
+              var attr = item.key[0];
+              var other = item.key[1];
+              removeDatum(batch, other, attr, entity, attrSchema(attr), time);
+            },
+            scan(['vae', entity]));
+        }.bind(this));
+      },
+
+      readAttribute: function(key, range) {
+        return cc.go(function*() {
+          var result = {};
+          var data;
+          if (range) {
+            if (attrSchema(key).indexed)
+              data = cf.map(
+                function(item) {
+                  return {
+                    key  : [item.key[1], item.key[0]],
+                    value: item.value
+                  }
+                },
+                scan(['ave', key], range));
+            else
+              data = cf.filter(
+                function(item) {
+                  var val = item.key[1];
+                  return val >= range.from && val <= range.to;
+                },
+                scan(['aev', key]));
+          }
+          else
+            data = scan(['aev', key]);
+
+          yield chan.each(
+            function(item) { result[item.key[0]] = item.key[1]; },
+            data);
+
+          return result;
+        });
+      },
+
+      updateAttribute: function(key, assign) {
+        return atomically(function*(batch, time) {
+          var old = yield this.readAttribute(key);
+          for (var e in assign)
+            putDatum(batch, e, key,
+                     assign[e], util.own(old, e), attrSchema(key), time);
+        }.bind(this));
+      },
+
+      destroyAttribute: function(key) {
+        return atomically(function*(batch, time) {
+          var old = yield this.readAttribute(key);
+          for (var e in old)
+            removeDatum(batch, e, key, old[e], attrSchema(key), time);
+        }.bind(this));
+      }
     };
   })
 };
