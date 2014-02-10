@@ -39,7 +39,7 @@ var addReverseLog = function(batch, entity, attr, val, time) {
 
 
 var removeDatum = function(batch, entity, attr, val, attrSchema, time) {
-  addReverseLog(batch, entity, attr, val, time);
+  addReverseLog(batch, entity, attr, [val], time);
 
   batch.del(encode(['eav', entity, attr, val]))
   batch.del(encode(['aev', attr, entity, val]));
