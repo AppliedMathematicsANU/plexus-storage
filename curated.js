@@ -25,6 +25,14 @@ Lock.prototype = {
 };
 
 
+var indexKeys = function(value, indexer) {
+  if (typeof indexer == 'function')
+    return indexer(value);
+  else
+    return [value];
+};
+
+
 var addReverseLog = function(batch, entity, attr, val, time) {
   batch.put(encode(['rev', time, entity, attr]), val);
 };
@@ -36,7 +44,9 @@ var removeDatum = function(batch, entity, attr, val, attrSchema, time) {
   batch.del(encode(['eav', entity, attr, val]))
   batch.del(encode(['aev', attr, entity, val]));
   if (attrSchema.indexed)
-    batch.del(encode(['ave', attr, val, entity]));
+    indexKeys(val, attrSchema.indexed).forEach(function(key) {
+      batch.del(encode(['ave', attr, key, entity]));
+    });
   if (attrSchema.reference)
     batch.del(encode(['vae', val, attr, entity]));
 };
@@ -51,7 +61,9 @@ var putDatum = function(batch, entity, attr, val, old, attrSchema, time) {
   batch.put(encode(['eav', entity, attr, val]), time);
   batch.put(encode(['aev', attr, entity, val]), time);
   if (attrSchema.indexed)
-    batch.put(encode(['ave', attr, val, entity]), time);
+    indexKeys(val, attrSchema.indexed).forEach(function(key) {
+      batch.put(encode(['ave', attr, key, entity]), time);
+    });
   if (attrSchema.reference)
     batch.put(encode(['vae', val, attr, entity]), time);
 };

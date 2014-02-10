@@ -58,7 +58,10 @@ var show = function(db, dyn, entities, attributes) {
 };
 
 
- var schema = {
+var schema = {
+  blurb: {
+    indexed: function(text) { return text.trim().split(/\s*\b/); }
+  },
   weight: {
     indexed: true
   },
@@ -72,21 +75,24 @@ top(function*() {
   var db  = yield level('', { db: memdown });
   var dyn = yield curated(db, schema);
   var entities = ['olaf', 'delaney', 'grace'];
-  var attributes = ['age', 'weight', 'height', 'parent'];
+  var attributes = ['blurb', 'age', 'weight', 'height', 'parent'];
 
   yield cc.lift(Array)(
     dyn.updateEntity('olaf', {
+      blurb: 'Hello, I am Olaf!',
       age: 50,
       weight: 87.5,
       height: 187.0
     }),
     dyn.updateEntity('delaney', {
+      blurb: 'Hi there.',
       age: 5,
       weight: 2.5,
       height: 2.5,
       parent: 'olaf'
     }),
     dyn.updateEntity('grace', {
+      blurb: 'Nice to meet you!',
       age: 0,
       weight: 30,
       height: 40,
@@ -99,6 +105,8 @@ top(function*() {
               yield dyn.readAttribute('weight', { from: 20, to: 50 }));
   console.log('heights between 0 and 50:',
               yield dyn.readAttribute('height', { from: 0, to: 50 }));
+  console.log('words starting with H in blurbs',
+              yield dyn.readAttribute('blurb', { from: 'H', to: 'H~' }));
   console.log();
 
   console.log('--- after changing grace\'s parent to delaney: ---');
