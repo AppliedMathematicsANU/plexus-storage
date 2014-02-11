@@ -40,7 +40,8 @@ module.exports = function(path, options) {
         },
 
         readRange: function(options) {
-          return chan.fromStream(db.createReadStream(options));
+          var stream = db.createReadStream(options);
+          return chan.fromStream(stream, null, stream.destroy.bind(stream));
         },
 
         write  : cc.nbind(db.put, db),
