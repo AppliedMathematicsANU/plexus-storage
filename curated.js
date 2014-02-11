@@ -23,6 +23,21 @@ var addReverseLog = function(batch, entity, attr, val, time) {
 };
 
 
+var collate = function(input, getSchema) {
+  return cc.go(function*() {
+    var result = {};
+
+    yield chan.each(
+      function(item) {
+        result[item.key[0]] = item.key[1];
+      },
+      input);
+
+    return result;
+  });
+};
+
+
 var removeDatum = function(batch, entity, attr, val, attrSchema, time) {
   addReverseLog(batch, entity, attr, [val], time);
 
@@ -106,15 +121,7 @@ module.exports = function(storage, schema) {
       close: storage.close,
 
       byEntity: function(entity) {
-        return cc.go(function*() {
-          var result = {};
-
-          yield chan.each(
-            function(item) { result[item.key[0]] = item.key[1]; },
-            scan(['eav', entity]));
-
-          return result;
-        });
+        return collate(scan(['eav', entity]), attrSchema);
       },
 
       updateEntity: function(entity, attr) {
@@ -144,7 +151,6 @@ module.exports = function(storage, schema) {
 
       byAttribute: function(key, range) {
         return cc.go(function*() {
-          var result = {};
           var data;
           if (range) {
             if (attrSchema(key).indexed)
@@ -167,11 +173,7 @@ module.exports = function(storage, schema) {
           else
             data = scan(['aev', key]);
 
-          yield chan.each(
-            function(item) { result[item.key[0]] = item.key[1]; },
-            data);
-
-          return result;
+          return yield collate(data, function(_) { return attrSchema(key); });
         });
       },
 
