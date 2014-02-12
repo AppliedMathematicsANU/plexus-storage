@@ -40,13 +40,13 @@ var collated = function(input, getSchema) {
 };
 
 
-var addReverseLog = function(batch, entity, attr, val, time) {
-  batch.put(encode(['rev', time, entity, attr]), val);
+var addLog = function(batch, entity, attr, val, time) {
+  batch.put(encode(['log', time, entity, attr]), val);
 };
 
 
 var removeDatum = function(batch, entity, attr, val, attrSchema, time) {
-  addReverseLog(batch, entity, attr, [val, ], time);
+  addLog(batch, entity, attr, { del: val }, time);
 
   batch.del(encode(['eav', entity, attr, val]))
   batch.del(encode(['aev', attr, entity, val]));
@@ -71,10 +71,13 @@ var removeData = function(batch, entity, attr, val, attrSchema, time) {
 
 var putDatum = function(batch, entity, attr, val, old, attrSchema, time) {
   if (old === undefined)
-    addReverseLog(batch, entity, attr, [, val], time);
+    addLog(batch, entity, attr, { add: val }, time);
   else {
     removeDatum(batch, entity, attr, old, attrSchema, time);
-    addReverseLog(batch, entity, attr, [old, val], time);
+    if (attrSchema.multiple)
+      addLog(batch, entity, attr, { add: val }, time);
+    else
+      addLog(batch, entity, attr, { chg: [old, val] }, time);
   }
 
   batch.put(encode(['eav', entity, attr, val]), time);
@@ -89,12 +92,14 @@ var putDatum = function(batch, entity, attr, val, old, attrSchema, time) {
 
 
 var putData = function(batch, entity, attr, val, old, attrSchema, time) {
-  if (attrSchema.multiple && Array.isArray(val))
-    val.forEach(function(v) {
-      putDatum(batch, entity, attr, v, undefined, attrSchema, time);
+  if (attrSchema.multiple) {
+    (Array.isArray(val) ? val : [val]).forEach(function(v) {
+      if ((old || []).indexOf(v) < 0)
+        putDatum(batch, entity, attr, v, undefined, attrSchema, time);
     });
-  else
+  } else {
     putDatum(batch, entity, attr, val, old, attrSchema, time);
+  }
 };
 
 

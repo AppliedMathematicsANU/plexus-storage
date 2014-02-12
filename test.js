@@ -110,8 +110,8 @@ top(function*() {
               yield dyn.byAttribute('greeting', { from: 'H', to: 'H~' }));
   console.log();
 
-  console.log('--- after add delaney as grace\'s parent: ---');
-  yield dyn.updateEntity('grace', { parents: 'delaney' });
+  console.log('--- after add olaf and delaney to grace\'s parent: ---');
+  yield dyn.updateEntity('grace', { parents: ['olaf', 'delaney'] });
   yield show(db, dyn, entities, attributes);
 
   console.log('--- after changing olaf\'s weight: ---');
