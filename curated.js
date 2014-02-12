@@ -115,7 +115,7 @@ module.exports = function(storage, schema) {
       });
     };
 
-    var values = function(entity, attribute, value) {
+    var values = function(entity, attribute) {
       return cc.go(function*() {
         var result = [];
         yield chan.each(
