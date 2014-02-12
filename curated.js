@@ -61,17 +61,6 @@ var removeDatum = function(batch, entity, attr, val, attrSchema, time, log) {
 };
 
 
-var removeData = function(batch, entity, attr, val, old, attrSchema, time) {
-  if (attrSchema.multiple && Array.isArray(val))
-    (Array.isArray(val) ? val : [val]).forEach(function(v) {
-      if (!old || old.indexOf(v) >= 0)
-        removeDatum(batch, entity, attr, v, attrSchema, time, true);
-    });
-  else
-    removeDatum(batch, entity, attr, val, attrSchema, time, true);
-};
-
-
 var putDatum = function(batch, entity, attr, val, old, attrSchema, time) {
   if (old === undefined)
     addLog(batch, time, entity, attr, 'add', val);
@@ -88,18 +77,6 @@ var putDatum = function(batch, entity, attr, val, old, attrSchema, time) {
     });
   if (attrSchema.reference)
     batch.put(encode(['vae', val, attr, entity]), time);
-};
-
-
-var putData = function(batch, entity, attr, val, old, attrSchema, time) {
-  if (attrSchema.multiple) {
-    (Array.isArray(val) ? val : [val]).forEach(function(v) {
-      if (!old || old.indexOf(v) < 0)
-        putDatum(batch, entity, attr, v, undefined, attrSchema, time);
-    });
-  } else {
-    putDatum(batch, entity, attr, val, old, attrSchema, time);
-  }
 };
 
 
@@ -151,38 +128,32 @@ module.exports = function(storage, schema) {
       return schema[key] || {};
     };
 
+    var removeData = function(batch, entity, attr, val, old, attrSchema, time) {
+      if (attrSchema.multiple && Array.isArray(val))
+        (Array.isArray(val) ? val : [val]).forEach(function(v) {
+          if (!old || old.indexOf(v) >= 0)
+            removeDatum(batch, entity, attr, v, attrSchema, time, true);
+        });
+      else
+        removeDatum(batch, entity, attr, val, attrSchema, time, true);
+    };
+
+    var putData = function(batch, entity, attr, val, old, attrSchema, time) {
+      if (attrSchema.multiple) {
+        (Array.isArray(val) ? val : [val]).forEach(function(v) {
+          if (!old || old.indexOf(v) < 0)
+            putDatum(batch, entity, attr, v, undefined, attrSchema, time);
+        });
+      } else {
+        putDatum(batch, entity, attr, val, old, attrSchema, time);
+      }
+    };
+
     return {
       close: storage.close,
 
       byEntity: function(entity) {
         return collated(scan(['eav', entity]), attrSchema);
-      },
-
-      updateEntity: function(entity, attr) {
-        return atomically(function*(batch, time) {
-          var old = yield this.byEntity(entity);
-          for (var key in attr)
-            putData(batch, entity, key,
-                    attr[key], util.own(old, key), attrSchema(key), time);
-        }.bind(this));
-      },
-
-      destroyEntity: function(entity) {
-        return atomically(function*(batch, time) {
-          var old = yield this.byEntity(entity);
-          for (var key in old)
-            removeData(batch, entity, key, old[key], null,
-                       attrSchema(key), time);
-
-          yield chan.each(
-            function(item) {
-              var attr = item.key[0];
-              var other = item.key[1];
-              removeData(batch, other, attr, entity, null,
-                         attrSchema(attr), time);
-            },
-            scan(['vae', entity]));
-        }.bind(this));
       },
 
       byAttribute: function(key, range) {
@@ -211,6 +182,33 @@ module.exports = function(storage, schema) {
 
           return yield collated(data, function(_) { return attrSchema(key); });
         });
+      },
+
+      updateEntity: function(entity, attr) {
+        return atomically(function*(batch, time) {
+          var old = yield this.byEntity(entity);
+          for (var key in attr)
+            putData(batch, entity, key,
+                    attr[key], util.own(old, key), attrSchema(key), time);
+        }.bind(this));
+      },
+
+      destroyEntity: function(entity) {
+        return atomically(function*(batch, time) {
+          var old = yield this.byEntity(entity);
+          for (var key in old)
+            removeData(batch, entity, key, old[key], null,
+                       attrSchema(key), time);
+
+          yield chan.each(
+            function(item) {
+              var attr = item.key[0];
+              var other = item.key[1];
+              removeData(batch, other, attr, entity, null,
+                         attrSchema(attr), time);
+            },
+            scan(['vae', entity]));
+        }.bind(this));
       },
 
       updateAttribute: function(key, assign) {
