@@ -226,6 +226,13 @@ module.exports = function(storage, schema) {
           for (var e in old)
             removeData(batch, e, key, old[e], attrSchema(key), time);
         }.bind(this));
+      },
+
+      unlist: function(entity, attribute, values) {
+        return atomically(function*(batch, time) {
+          removeData(batch, entity, attribute, values,
+                     attrSchema(attribute), time);
+        });
       }
     };
   })

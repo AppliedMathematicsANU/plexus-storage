@@ -126,5 +126,9 @@ top(function*() {
   yield dyn.destroyAttribute('weight');
   yield show(db, dyn, entities, attributes);
 
+  console.log('--- after unlisting olaf and delaney as grace\'s parents: ---');
+  yield dyn.unlist('grace', 'parents', ['olaf', 'delaney']);
+  yield show(db, dyn, entities, attributes);
+
   dyn.close();
 });
