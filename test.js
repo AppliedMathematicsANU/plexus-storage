@@ -65,8 +65,9 @@ var schema = {
   weight: {
     indexed: true
   },
-  parent: {
-    reference: true
+  parents: {
+    reference: true,
+    multiple : true
   }
 };
 
@@ -75,28 +76,28 @@ top(function*() {
   var db  = yield level('', { db: memdown });
   var dyn = yield curated(db, schema);
   var entities = ['olaf', 'delaney', 'grace'];
-  var attributes = ['blurb', 'age', 'weight', 'height', 'parent'];
+  var attributes = ['greeting', 'age', 'weight', 'height', 'parents'];
 
   yield cc.lift(Array)(
     dyn.updateEntity('olaf', {
-      blurb: 'Hello, I am Olaf!',
-      age: 50,
-      weight: 87.5,
-      height: 187.0
+      greeting: 'Hello, I am Olaf!',
+      age     : 50,
+      weight  : 87.5,
+      height  : 187.0
     }),
     dyn.updateEntity('delaney', {
-      blurb: 'Hi there.',
-      age: 5,
-      weight: 2.5,
-      height: 2.5,
-      parent: 'olaf'
+      greeting: 'Hi there.',
+      age     : 5,
+      weight  : 2.5,
+      height  : 2.5,
+      parents : 'olaf'
     }),
     dyn.updateEntity('grace', {
-      blurb: 'Nice to meet you!',
-      age: 0,
-      weight: 30,
-      height: 40,
-      parent: 'olaf'
+      greeting: 'Nice to meet you!',
+      age     : 0,
+      weight  : 30,
+      height  : 40,
+      parents : 'olaf'
     }));
 
   yield show(db, dyn, entities, attributes);
@@ -105,16 +106,13 @@ top(function*() {
               yield dyn.byAttribute('weight', { from: 20, to: 50 }));
   console.log('heights between 0 and 50:',
               yield dyn.byAttribute('height', { from: 0, to: 50 }));
-  console.log('words starting with H in blurbs',
-              yield dyn.byAttribute('blurb', { from: 'H', to: 'H~' }));
+  console.log('words starting with H in greetings',
+              yield dyn.byAttribute('greeting', { from: 'H', to: 'H~' }));
   console.log();
 
-  console.log('--- after changing grace\'s parent to delaney: ---');
-  yield dyn.updateEntity('grace', { parent: 'delaney' });
+  console.log('--- after add delaney as grace\'s parent: ---');
+  yield dyn.updateEntity('grace', { parents: 'delaney' });
   yield show(db, dyn, entities, attributes);
-
-  console.log('weights between 20 and 30:',
-              yield dyn.byAttribute('weight', { from: 20, to: 30 }));
 
   console.log('--- after changing olaf\'s weight: ---');
   yield dyn.updateAttribute('weight', { olaf: 86 });

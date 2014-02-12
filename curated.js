@@ -29,7 +29,14 @@ var collate = function(input, getSchema) {
 
     yield chan.each(
       function(item) {
-        result[item.key[0]] = item.key[1];
+        var key = item.key[0];
+        var val = item.key[1];
+        if (!getSchema(key).multiple)
+          result[key] = val;
+        else if (result[key])
+          result[key].push(val);
+        else
+          result[key] = [val];
       },
       input);
 
@@ -39,7 +46,7 @@ var collate = function(input, getSchema) {
 
 
 var removeDatum = function(batch, entity, attr, val, attrSchema, time) {
-  addReverseLog(batch, entity, attr, [val], time);
+  addReverseLog(batch, entity, attr, [val, ], time);
 
   batch.del(encode(['eav', entity, attr, val]))
   batch.del(encode(['aev', attr, entity, val]));
@@ -52,11 +59,23 @@ var removeDatum = function(batch, entity, attr, val, attrSchema, time) {
 };
 
 
+var removeData = function(batch, entity, attr, val, attrSchema, time) {
+  if (attrSchema.multiple && Array.isArray(val))
+    val.forEach(function(v) {
+      removeDatum(batch, entity, attr, v, attrSchema, time);
+    });
+  else
+    removeDatum(batch, entity, attr, val, attrSchema, time);
+};
+
+
 var putDatum = function(batch, entity, attr, val, old, attrSchema, time) {
   if (old === undefined)
-    addReverseLog(batch, entity, attr, [], time);
-  else
+    addReverseLog(batch, entity, attr, [, val], time);
+  else {
     removeDatum(batch, entity, attr, old, attrSchema, time);
+    addReverseLog(batch, entity, attr, [old, val], time);
+  }
 
   batch.put(encode(['eav', entity, attr, val]), time);
   batch.put(encode(['aev', attr, entity, val]), time);
@@ -66,6 +85,16 @@ var putDatum = function(batch, entity, attr, val, old, attrSchema, time) {
     });
   if (attrSchema.reference)
     batch.put(encode(['vae', val, attr, entity]), time);
+};
+
+
+var putData = function(batch, entity, attr, val, old, attrSchema, time) {
+  if (attrSchema.multiple && Array.isArray(val))
+    val.forEach(function(v) {
+      putDatum(batch, entity, attr, v, undefined, attrSchema, time);
+    });
+  else
+    putDatum(batch, entity, attr, val, old, attrSchema, time);
 };
 
 
@@ -128,8 +157,8 @@ module.exports = function(storage, schema) {
         return atomically(function*(batch, time) {
           var old = yield this.byEntity(entity);
           for (var key in attr)
-            putDatum(batch, entity, key,
-                     attr[key], util.own(old, key), attrSchema(key), time);
+            putData(batch, entity, key,
+                    attr[key], util.own(old, key), attrSchema(key), time);
         }.bind(this));
       },
 
@@ -137,13 +166,13 @@ module.exports = function(storage, schema) {
         return atomically(function*(batch, time) {
           var old = yield this.byEntity(entity);
           for (var key in old)
-            removeDatum(batch, entity, key, old[key], attrSchema(key), time);
+            removeData(batch, entity, key, old[key], attrSchema(key), time);
 
           yield chan.each(
             function(item) {
               var attr = item.key[0];
               var other = item.key[1];
-              removeDatum(batch, other, attr, entity, attrSchema(attr), time);
+              removeData(batch, other, attr, entity, attrSchema(attr), time);
             },
             scan(['vae', entity]));
         }.bind(this));
@@ -181,8 +210,8 @@ module.exports = function(storage, schema) {
         return atomically(function*(batch, time) {
           var old = yield this.byAttribute(key);
           for (var e in assign)
-            putDatum(batch, e, key,
-                     assign[e], util.own(old, e), attrSchema(key), time);
+            putData(batch, e, key,
+                    assign[e], util.own(old, e), attrSchema(key), time);
         }.bind(this));
       },
 
@@ -190,7 +219,7 @@ module.exports = function(storage, schema) {
         return atomically(function*(batch, time) {
           var old = yield this.byAttribute(key);
           for (var e in old)
-            removeDatum(batch, e, key, old[e], attrSchema(key), time);
+            removeData(batch, e, key, old[e], attrSchema(key), time);
         }.bind(this));
       }
     };
