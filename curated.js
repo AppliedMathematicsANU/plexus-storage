@@ -105,6 +105,26 @@ module.exports = function(storage, schema) {
         }));
     };
 
+    var exists = function(entity, attribute, value) { // TODO cleaner scan
+      return cc.go(function*() {
+        var result = false;
+        yield chan.each(
+          function(item) { if (item.key[0] == value) result = true; },
+          scan(['eav', entity, attribute], { from: value }, 1));
+        return result;
+      });
+    };
+
+    var values = function(entity, attribute, value) {
+      return cc.go(function*() {
+        var result = [];
+        yield chan.each(
+          function(item) { result.push(item.key[0]); },
+          scan(['eav', entity, attribute]));
+        return result;
+      });
+    };
+
     var nextTimestamp = function(batch) {
       return cc.go(function*() {
         var t = yield chan.pull(scan(['seq'], null, 1));
@@ -128,25 +148,36 @@ module.exports = function(storage, schema) {
       return schema[key] || {};
     };
 
-    var removeData = function(batch, entity, attr, val, old, attrSchema, time) {
-      if (attrSchema.multiple && Array.isArray(val))
-        (Array.isArray(val) ? val : [val]).forEach(function(v) {
-          if (!old || old.indexOf(v) >= 0)
-            removeDatum(batch, entity, attr, v, attrSchema, time, true);
-        });
-      else
-        removeDatum(batch, entity, attr, val, attrSchema, time, true);
+    var removeData = function(batch, entity, attr, val, time) {
+      var schema = attrSchema(attr);
+      return cc.go(function*() {
+        var a = (schema.multiple && Array.isArray(val)) ? val : [val];
+        var i, v;
+        for (i in a) {
+          v = a[i];
+          if (yield exists(entity, attr, v))
+            removeDatum(batch, entity, attr, v, schema, time, true);
+        }
+      });
     };
 
-    var putData = function(batch, entity, attr, val, old, attrSchema, time) {
-      if (attrSchema.multiple) {
-        (Array.isArray(val) ? val : [val]).forEach(function(v) {
-          if (!old || old.indexOf(v) < 0)
-            putDatum(batch, entity, attr, v, undefined, attrSchema, time);
-        });
-      } else {
-        putDatum(batch, entity, attr, val, old, attrSchema, time);
-      }
+    var putData = function(batch, entity, attr, val, time) {
+      var schema = attrSchema(attr);
+      return cc.go(function*() {
+        var a = (schema.multiple && Array.isArray(val)) ? val : [val];
+        var i, v, old;
+        for (i in a) {
+          v = a[i];
+          if (!(yield exists(entity, attr, v))) {
+            if (schema.multiple)
+              putDatum(batch, entity, attr, v, undefined, schema, time);
+            else {
+              old = yield values(entity, attr);
+              putDatum(batch, entity, attr, v, old[0], schema, time);
+            }
+          }
+        }
+      });
     };
 
     return {
@@ -186,10 +217,8 @@ module.exports = function(storage, schema) {
 
       updateEntity: function(entity, attr) {
         return atomically(function*(batch, time) {
-          var old = yield this.byEntity(entity);
           for (var key in attr)
-            putData(batch, entity, key,
-                    attr[key], util.own(old, key), attrSchema(key), time);
+            yield putData(batch, entity, key, attr[key], time);
         }.bind(this));
       },
 
@@ -197,15 +226,13 @@ module.exports = function(storage, schema) {
         return atomically(function*(batch, time) {
           var old = yield this.byEntity(entity);
           for (var key in old)
-            removeData(batch, entity, key, old[key], null,
-                       attrSchema(key), time);
+            yield removeData(batch, entity, key, old[key], time);
 
           yield chan.each(
             function(item) {
               var attr = item.key[0];
               var other = item.key[1];
-              removeData(batch, other, attr, entity, null,
-                         attrSchema(attr), time);
+              return removeData(batch, other, attr, entity, time);
             },
             scan(['vae', entity]));
         }.bind(this));
@@ -213,10 +240,8 @@ module.exports = function(storage, schema) {
 
       updateAttribute: function(key, assign) {
         return atomically(function*(batch, time) {
-          var old = yield this.byAttribute(key);
           for (var e in assign)
-            putData(batch, e, key,
-                    assign[e], util.own(old, e), attrSchema(key), time);
+            yield putData(batch, e, key, assign[e], time);
         }.bind(this));
       },
 
@@ -224,15 +249,13 @@ module.exports = function(storage, schema) {
         return atomically(function*(batch, time) {
           var old = yield this.byAttribute(key);
           for (var e in old)
-            removeData(batch, e, key, old[e], null, attrSchema(key), time);
+            yield removeData(batch, e, key, old[e], time);
         }.bind(this));
       },
 
       unlist: function(entity, attribute, values) {
         return atomically(function*(batch, time) {
-          var old = yield this.byEntity(entity);
-          removeData(batch, entity, attribute, values, util.own(old, attribute),
-                     attrSchema(attribute), time);
+          yield removeData(batch, entity, attribute, values, time);
         }.bind(this));
       }
     };
