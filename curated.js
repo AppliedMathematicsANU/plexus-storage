@@ -18,12 +18,7 @@ var indexKeys = function(value, indexer) {
 };
 
 
-var addReverseLog = function(batch, entity, attr, val, time) {
-  batch.put(encode(['rev', time, entity, attr]), val);
-};
-
-
-var collate = function(input, getSchema) {
+var collated = function(input, getSchema) {
   return cc.go(function*() {
     var result = {};
 
@@ -42,6 +37,11 @@ var collate = function(input, getSchema) {
 
     return result;
   });
+};
+
+
+var addReverseLog = function(batch, entity, attr, val, time) {
+  batch.put(encode(['rev', time, entity, attr]), val);
 };
 
 
@@ -150,7 +150,7 @@ module.exports = function(storage, schema) {
       close: storage.close,
 
       byEntity: function(entity) {
-        return collate(scan(['eav', entity]), attrSchema);
+        return collated(scan(['eav', entity]), attrSchema);
       },
 
       updateEntity: function(entity, attr) {
@@ -202,7 +202,7 @@ module.exports = function(storage, schema) {
           else
             data = scan(['aev', key]);
 
-          return yield collate(data, function(_) { return attrSchema(key); });
+          return yield collated(data, function(_) { return attrSchema(key); });
         });
       },
 
