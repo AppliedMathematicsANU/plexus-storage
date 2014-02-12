@@ -40,13 +40,15 @@ var collated = function(input, getSchema) {
 };
 
 
-var addLog = function(batch, entity, attr, val, time) {
-  batch.put(encode(['log', time, entity, attr]), val);
+var addLog = function(batch, time, entity, attr, op) {
+  var vals = Array.prototype.slice.call(arguments, 5);
+  batch.put(encode(['log', time, entity, attr, op].concat(vals)), '');
 };
 
 
-var removeDatum = function(batch, entity, attr, val, attrSchema, time) {
-  addLog(batch, entity, attr, { del: val }, time);
+var removeDatum = function(batch, entity, attr, val, attrSchema, time, log) {
+  if (log)
+    addLog(batch, time, entity, attr, 'del', val);
 
   batch.del(encode(['eav', entity, attr, val]))
   batch.del(encode(['aev', attr, entity, val]));
@@ -59,25 +61,23 @@ var removeDatum = function(batch, entity, attr, val, attrSchema, time) {
 };
 
 
-var removeData = function(batch, entity, attr, val, attrSchema, time) {
+var removeData = function(batch, entity, attr, val, old, attrSchema, time) {
   if (attrSchema.multiple && Array.isArray(val))
-    val.forEach(function(v) {
-      removeDatum(batch, entity, attr, v, attrSchema, time);
+    (Array.isArray(val) ? val : [val]).forEach(function(v) {
+      if (!old || old.indexOf(v) >= 0)
+        removeDatum(batch, entity, attr, v, attrSchema, time, true);
     });
   else
-    removeDatum(batch, entity, attr, val, attrSchema, time);
+    removeDatum(batch, entity, attr, val, attrSchema, time, true);
 };
 
 
 var putDatum = function(batch, entity, attr, val, old, attrSchema, time) {
   if (old === undefined)
-    addLog(batch, entity, attr, { add: val }, time);
+    addLog(batch, time, entity, attr, 'add', val);
   else {
-    removeDatum(batch, entity, attr, old, attrSchema, time);
-    if (attrSchema.multiple)
-      addLog(batch, entity, attr, { add: val }, time);
-    else
-      addLog(batch, entity, attr, { chg: [old, val] }, time);
+    removeDatum(batch, entity, attr, old, attrSchema, time, false);
+    addLog(batch, time, entity, attr, 'chg', old, val);
   }
 
   batch.put(encode(['eav', entity, attr, val]), time);
@@ -94,7 +94,7 @@ var putDatum = function(batch, entity, attr, val, old, attrSchema, time) {
 var putData = function(batch, entity, attr, val, old, attrSchema, time) {
   if (attrSchema.multiple) {
     (Array.isArray(val) ? val : [val]).forEach(function(v) {
-      if ((old || []).indexOf(v) < 0)
+      if (!old || old.indexOf(v) < 0)
         putDatum(batch, entity, attr, v, undefined, attrSchema, time);
     });
   } else {
@@ -171,13 +171,15 @@ module.exports = function(storage, schema) {
         return atomically(function*(batch, time) {
           var old = yield this.byEntity(entity);
           for (var key in old)
-            removeData(batch, entity, key, old[key], attrSchema(key), time);
+            removeData(batch, entity, key, old[key], null,
+                       attrSchema(key), time);
 
           yield chan.each(
             function(item) {
               var attr = item.key[0];
               var other = item.key[1];
-              removeData(batch, other, attr, entity, attrSchema(attr), time);
+              removeData(batch, other, attr, entity, null,
+                         attrSchema(attr), time);
             },
             scan(['vae', entity]));
         }.bind(this));
@@ -224,15 +226,16 @@ module.exports = function(storage, schema) {
         return atomically(function*(batch, time) {
           var old = yield this.byAttribute(key);
           for (var e in old)
-            removeData(batch, e, key, old[e], attrSchema(key), time);
+            removeData(batch, e, key, old[e], null, attrSchema(key), time);
         }.bind(this));
       },
 
       unlist: function(entity, attribute, values) {
         return atomically(function*(batch, time) {
-          removeData(batch, entity, attribute, values,
+          var old = yield this.byEntity(entity);
+          removeData(batch, entity, attribute, values, util.own(old, attribute),
                      attrSchema(attribute), time);
-        });
+        }.bind(this));
       }
     };
   })
