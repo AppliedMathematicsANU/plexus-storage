@@ -171,12 +171,8 @@ module.exports = function(storage, schema) {
         for (i in a) {
           v = a[i];
           if (!(yield exists(entity, attr, v))) {
-            if (schema.multiple)
-              putDatum(batch, entity, attr, v, undefined, schema, time);
-            else {
-              old = yield values(entity, attr);
-              putDatum(batch, entity, attr, v, old[0], schema, time);
-            }
+            old = schema.multiple ? [] : (yield values(entity, attr));
+            putDatum(batch, entity, attr, v, old[0], schema, time);
           }
         }
       });
