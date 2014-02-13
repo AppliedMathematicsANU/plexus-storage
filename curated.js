@@ -46,18 +46,29 @@ var addLog = function(batch, time, entity, attr, op) {
 };
 
 
+var entriesFor = function(entity, attr, val, attrSchema) {
+  var tmp = [
+    ['eav', entity, attr, val],
+    ['aev', attr, entity, val]];
+
+  if (attrSchema.indexed)
+    indexKeys(val, attrSchema.indexed).forEach(function(key) {
+      tmp.push(['ave', attr, key, entity]);
+    });
+  if (attrSchema.reference)
+    tmp.push(['vae', val, attr, entity]);
+
+  return tmp.map(encode);
+};
+
+
 var removeDatum = function(batch, entity, attr, val, attrSchema, time, log) {
   if (log)
     addLog(batch, time, entity, attr, 'del', val);
 
-  batch.del(encode(['eav', entity, attr, val]))
-  batch.del(encode(['aev', attr, entity, val]));
-  if (attrSchema.indexed)
-    indexKeys(val, attrSchema.indexed).forEach(function(key) {
-      batch.del(encode(['ave', attr, key, entity]));
-    });
-  if (attrSchema.reference)
-    batch.del(encode(['vae', val, attr, entity]));
+  entriesFor(entity, attr, val, attrSchema).forEach(function(e) {
+    batch.del(e);
+  });
 };
 
 
@@ -69,14 +80,9 @@ var putDatum = function(batch, entity, attr, val, old, attrSchema, time) {
     addLog(batch, time, entity, attr, 'chg', old, val);
   }
 
-  batch.put(encode(['eav', entity, attr, val]), time);
-  batch.put(encode(['aev', attr, entity, val]), time);
-  if (attrSchema.indexed)
-    indexKeys(val, attrSchema.indexed).forEach(function(key) {
-      batch.put(encode(['ave', attr, key, entity]), time);
-    });
-  if (attrSchema.reference)
-    batch.put(encode(['vae', val, attr, entity]), time);
+  entriesFor(entity, attr, val, attrSchema).forEach(function(e) {
+    batch.put(e, time);
+  });
 };
 
 
