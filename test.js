@@ -19,6 +19,7 @@ var formatEntity = function(db, key) {
   return cc.go(function*() {
     var tmp = {};
     tmp[key] = (yield db.byEntity(key)) || null;
+    tmp[key].references = (yield db.references(key)) || null;
     return JSON.stringify(tmp, null, 2);
   });
 };

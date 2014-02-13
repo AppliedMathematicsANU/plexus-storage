@@ -191,6 +191,10 @@ module.exports = function(storage, schema) {
         return collated(scan(['eav', entity]), attrSchema);
       },
 
+      references: function(entity) {
+        return collated(scan(['vae', entity]), attrSchema);
+      },
+
       byAttribute: function(key, range) {
         return cc.go(function*() {
           var data;
