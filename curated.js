@@ -105,11 +105,13 @@ module.exports = function(storage, schema) {
         }));
     };
 
-    var exists = function(entity, attribute, value) { // TODO cleaner scan
+    var exists = function(entity, attribute, value) {
       return cc.go(function*() {
         var result = false;
         yield chan.each(
-          function(item) { if (item.key[0] == value) result = true; },
+          function(item) {
+            if (encode(item.key[0]) == encode(value)) result = true;
+          },
           scan(['eav', entity, attribute], { from: value }, 1));
         return result;
       });
