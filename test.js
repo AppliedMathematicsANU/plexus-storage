@@ -15,17 +15,6 @@ var top = function(gen) {
 };
 
 
-var showPair = function(key, val) {
-  console.log(JSON.stringify(key) + ': ' + JSON.stringify(val));
-};
-
-var dump_db = function(db, options) {
-  return chan.each(
-    function(data) { showPair(util.decode(data.key), data.value); },
-    db.readRange(options));
-};
-
-
 var formatEntity = function(db, key) {
   return cc.go(function*() {
     var tmp = {};
@@ -42,24 +31,31 @@ var formatAttribute = function(db, key) {
   });
 };
 
-var show = function(db, dyn, entities, attributes) {
+
+var show = function(rawDB, db, entities, attributes) {
   return cc.go(function*() {
     for (var i = 0; i < entities.length; ++i)
-      console.log(yield formatEntity(dyn, entities[i]));
+      console.log(yield formatEntity(db, entities[i]));
     console.log();
 
     for (var i = 0; i < attributes.length; ++i)
-      console.log(yield formatAttribute(dyn, attributes[i]));
+      console.log(yield formatAttribute(db, attributes[i]));
     console.log();
 
-    yield dump_db(db);
+    yield chan.each(
+      function(data) {
+        console.log(JSON.stringify(util.decode(data.key)) + ':',
+                    JSON.stringify(data.value));
+      },
+      rawDB.readRange());
+
     console.log();
   });
 };
 
 
 var schema = {
-  blurb: {
+  greeting: {
     indexed: function(text) { return text.trim().split(/\s*\b/); }
   },
   weight: {
@@ -73,26 +69,26 @@ var schema = {
 
 
 top(function*() {
-  var db  = yield level('', { db: memdown });
-  var dyn = yield curated(db, schema);
+  var rawDB  = yield level('', { db: memdown });
+  var db = yield curated(rawDB, schema);
   var entities = ['olaf', 'delaney', 'grace'];
   var attributes = ['greeting', 'age', 'weight', 'height', 'parents'];
 
   yield cc.lift(Array)(
-    dyn.updateEntity('olaf', {
+    db.updateEntity('olaf', {
       greeting: 'Hello, I am Olaf!',
       age     : 50,
       weight  : 87.5,
       height  : 187.0
     }),
-    dyn.updateEntity('delaney', {
+    db.updateEntity('delaney', {
       greeting: 'Hi there.',
       age     : 5,
       weight  : 2.5,
       height  : 2.5,
       parents : 'olaf'
     }),
-    dyn.updateEntity('grace', {
+    db.updateEntity('grace', {
       greeting: 'Nice to meet you!',
       age     : 0,
       weight  : 30,
@@ -100,35 +96,35 @@ top(function*() {
       parents : 'olaf'
     }));
 
-  yield show(db, dyn, entities, attributes);
+  yield show(rawDB, db, entities, attributes);
 
   console.log('weights between 20 and 50:',
-              yield dyn.byAttribute('weight', { from: 20, to: 50 }));
+              yield db.byAttribute('weight', { from: 20, to: 50 }));
   console.log('heights between 0 and 50:',
-              yield dyn.byAttribute('height', { from: 0, to: 50 }));
+              yield db.byAttribute('height', { from: 0, to: 50 }));
   console.log('words starting with H in greetings',
-              yield dyn.byAttribute('greeting', { from: 'H', to: 'H~' }));
+              yield db.byAttribute('greeting', { from: 'H', to: 'H~' }));
   console.log();
 
   console.log('--- after add olaf and delaney to grace\'s parent: ---');
-  yield dyn.updateEntity('grace', { parents: ['olaf', 'delaney'] });
-  yield show(db, dyn, entities, attributes);
+  yield db.updateEntity('grace', { parents: ['olaf', 'delaney'] });
+  yield show(rawDB, db, entities, attributes);
 
   console.log('--- after changing olaf\'s weight: ---');
-  yield dyn.updateAttribute('weight', { olaf: 86 });
-  yield show(db, dyn, entities, attributes);
+  yield db.updateAttribute('weight', { olaf: 86 });
+  yield show(rawDB, db, entities, attributes);
 
   console.log('--- after deleting delaney: ---');
-  yield dyn.destroyEntity('delaney');
-  yield show(db, dyn, entities, attributes);
+  yield db.destroyEntity('delaney');
+  yield show(rawDB, db, entities, attributes);
 
   console.log('--- after deleting weights: ---');
-  yield dyn.destroyAttribute('weight');
-  yield show(db, dyn, entities, attributes);
+  yield db.destroyAttribute('weight');
+  yield show(rawDB, db, entities, attributes);
 
   console.log('--- after unlisting olaf and delaney as grace\'s parents: ---');
-  yield dyn.unlist('grace', 'parents', ['olaf', 'delaney']);
-  yield show(db, dyn, entities, attributes);
+  yield db.unlist('grace', 'parents', ['olaf', 'delaney']);
+  yield show(rawDB, db, entities, attributes);
 
-  dyn.close();
+  db.close();
 });
