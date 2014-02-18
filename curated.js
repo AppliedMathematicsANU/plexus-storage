@@ -265,6 +265,10 @@ module.exports = function(storage, schema) {
         return atomically(function*(batch, time) {
           yield removeData(batch, entity, attribute, values, time);
         }.bind(this));
+      },
+
+      raw: function() {
+        return scan([]);
       }
     };
   })

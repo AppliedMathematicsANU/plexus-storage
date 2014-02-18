@@ -44,11 +44,10 @@ var show = function(rawDB, db, entities, attributes) {
     console.log();
 
     yield chan.each(
-      function(data) {
-        console.log(JSON.stringify(util.decode(data.key)) + ':',
-                    JSON.stringify(data.value));
+      function(e) {
+        console.log(JSON.stringify(e.key) + ':', JSON.stringify(e.value));
       },
-      rawDB.readRange());
+      db.raw());
 
     console.log();
   });
