@@ -22,13 +22,15 @@ var printNicely = function(data) {
 };
 
 
+cc.longStackSupport = true;
+
 if (module != null && !module.parent) {
   var input_type = process.argv[2];
   var input_path = process.argv[3];
   var storage = require("./" + input_type);
   var data = {};
 
-  cc.go(function*() {
+  cc.top(cc.go(function*() {
     var db = yield automatic(yield storage(input_path));
     var keys, i, k;
 
@@ -46,5 +48,5 @@ if (module != null && !module.parent) {
     yield db.close();
 
     printNicely(data);
-  });
+  }));
 }

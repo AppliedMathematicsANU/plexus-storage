@@ -10,11 +10,6 @@ var curated = require('./curated');
 var util    = require('./util');
 
 
-var top = function(gen) {
-  cc.go(gen).then(null, function(ex) { console.log(ex.stack); });
-};
-
-
 var formatEntity = function(db, key) {
   return cc.go(function*() {
     var tmp = {};
@@ -35,11 +30,13 @@ var formatAttribute = function(db, key) {
 
 var show = function(rawDB, db, entities, attributes) {
   return cc.go(function*() {
-    for (var i = 0; i < entities.length; ++i)
+    var i;
+
+    for (i in entities)
       console.log(yield formatEntity(db, entities[i]));
     console.log();
 
-    for (var i = 0; i < attributes.length; ++i)
+    for (i in attributes)
       console.log(yield formatAttribute(db, attributes[i]));
     console.log();
 
@@ -68,13 +65,13 @@ var schema = {
 };
 
 
-top(function*() {
+cc.top(cc.go(function*() {
   var rawDB  = yield level('', { db: memdown });
   var db = yield curated(rawDB, schema);
   var entities = ['olaf', 'delaney', 'grace'];
   var attributes = ['greeting', 'age', 'weight', 'height', 'parents'];
 
-  yield cc.lift(Array)(
+  yield cc.join([
     db.updateEntity('olaf', {
       greeting: 'Hello, I am Olaf!',
       age     : 50,
@@ -94,7 +91,7 @@ top(function*() {
       weight  : 30,
       height  : 40,
       parents : 'olaf'
-    }));
+    })]);
 
   yield show(rawDB, db, entities, attributes);
 
@@ -127,4 +124,4 @@ top(function*() {
   yield show(rawDB, db, entities, attributes);
 
   db.close();
-});
+}));
