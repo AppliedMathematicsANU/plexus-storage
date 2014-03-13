@@ -192,7 +192,8 @@ module.exports = function(storage, schema) {
       },
 
       references: function(entity) {
-        return collated(scan(['vae', entity]), attrSchema);
+        return collated(scan(['vae', entity]),
+                        function(_) { return { multiple: true }; });
       },
 
       byAttribute: function(key, range) {
