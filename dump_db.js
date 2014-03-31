@@ -1,7 +1,7 @@
 'use strict';
 
 var cc = require('ceci-core');
-var automatic = require('./automatic');
+var engine = require('./index');
 
 
 var printNicely = function(data) {
@@ -31,7 +31,7 @@ if (module != null && !module.parent) {
   var data = {};
 
   cc.top(cc.go(function*() {
-    var db = yield automatic(yield storage(input_path));
+    var db = yield engine(yield storage(input_path));
     var keys, i, k;
 
     data.predecessors = yield db.readDependencyGraph();
