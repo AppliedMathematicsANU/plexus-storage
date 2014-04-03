@@ -1,7 +1,7 @@
 'use strict';
 
-var cc = require('ceci-core');
-var engine = require('./index');
+var cc    = require('ceci-core');
+var store = require('./index');
 
 
 var printNicely = function(data) {
@@ -27,11 +27,10 @@ cc.longStackSupport = true;
 if (module != null && !module.parent) {
   var input_type = process.argv[2];
   var input_path = process.argv[3];
-  var storage = require("./" + input_type);
   var data = {};
 
   cc.top(cc.go(function*() {
-    var db = yield engine(yield storage(input_path));
+    var db = yield store(input_type, input_path);
     var keys, i, k;
 
     data.predecessors = yield db.readDependencyGraph();
